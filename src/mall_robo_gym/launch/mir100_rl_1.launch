@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node pkg="mall_robo_gym" type="mir100_rl_1.py" name="mir100_rl_1" output="screen" />
+</launch>

@@ -1,0 +1,8 @@
+prefix=/home/liu/mir100RL_ws/install
+
+Name: mall_robo_gym
+Description: Description of mall_robo_gym
+Version: 1.1.5
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
