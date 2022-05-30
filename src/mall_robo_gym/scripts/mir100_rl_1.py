@@ -6,13 +6,13 @@ import math
 import rospy 
 import numpy as np
 from dataclasses import dataclass
-from tqdm import tqdm_notebook
+# from tqdm import tqdm_notebook
 import matplotlib.pyplot as plt
 from std_msgs.msg import Header
 from scipy.spatial.distance import cdist
 # from robo_gym.utils import utils, mir100_utils
 # from robo_gym.envs.mir100.mir100 import Mir100Env
-from robo_gym.envs.simulation_wrapper import Simulation
+#from robo_gym.envs.simulation_wrapper import Simulation
 from gazebo_msgs.srv import GetModelState, SetModelState
 from gazebo_msgs.msg import ModelState 
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
@@ -32,8 +32,8 @@ sys.path.append("../")
 
 
 
-WAYPOINT_POSITIONS = [10,2,0,14,4,0,14,6,0,25,6,0,-15,24,0,2,2,0]
-WAYPOINT_YAWS = [90, 0, 180, 0, 90, 180]
+WAYPOINT_POSITIONS = [-20,-29,0,-20.5,-10,0,-7,13.5,0,13.5,-6.5,0,21.5,-7,0,19,-32,0]
+WAYPOINT_YAWS = [90, 90, 90, 270, 30, 0]
 
 SPEED = 1
 
@@ -95,12 +95,10 @@ Reward: 1-  agent gets a reward of -1 for each second
 """
 
 
-class DynamicObstacleNavigationMir100Sim(Simulation):
-    cmd = "roslaunch new_mir_gazebo sim_mall_world.launch"
-
-    def __init__(self,ip=None,lower_bound_port=None,upper_bound_port=None,gui=True,**kwargs):
-        Simulation.__init__(self,self.cmd,ip,lower_bound_port,upper_bound_port,gui,**kwargs)
-        
+class DynamicObstacleNavigationMir100Sim:
+    def __init__(self,**kwargs):
+        self._name = 'mir100_rl_1'
+        rospy.loginfo(f'[{self._name}] starting node DynamicObstacleNavigationMir100Sim')
         self.waypoints = []
         self.waypoints += [
             Waypoint(Point(*WAYPOINT_POSITIONS[i*3:(i*3)+3]),
@@ -112,8 +110,6 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         self.all_points = [START_POINT]
         self.all_points += self.waypoints
         # self.all_points.append(START_POINT)
-
-        # self.mir100 = mir100_utils.Mir100()
 
         self.StartPoint_x = START_POINT.position.x
         self.StartPoint_y = START_POINT.position.y
@@ -137,8 +133,8 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 3600        # Maximum time for each episode: 1 h = 3600 s
-        self.initialize_Q_table_by_time = True
+        self.max_time = 900        # Maximum time for each episode: 0.25 h = 15 min = 900 s
+        self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
         self.addi_reward_multiply_value = 10   # We are more concerned with reducing the overall time rather than the time it takes to get to a certain waypoint.
@@ -147,11 +143,12 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         if self.initialize_Q_table_by_time:
             self._generate_q_values()
 
-        # Restart the environment on a new episode. Return the index of first_waypoint to go
+        # Restart the environment on a new episode. Return the start_point_index
         self.reset()
 
 
     def reset(self):
+        rospy.loginfo(f"[{self._name}] reset!")
         # visited points index placeholder (visited_points is an array of the index of visited points)
         ## Equal to the state memory
         start_point_index = 0
@@ -168,11 +165,10 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
 
         # Get the time robot start path planning
         self.time_start = time.time()
+        rospy.loginfo(f"[{self._name}] The time to start timing is [{self.time_start}]")
 
         # Reset the overall time to 0
         self.overall_time = 0
-
-        super().reset() # super() is for what?
 
         # Return the index of the first point robot starts (state)
         return start_point_index
@@ -184,6 +180,7 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
 
     # The action is next waypoint to go (next_waypoint)
     def step(self, next_waypoint):
+        rospy.loginfo(f"[{self._name}] action: index of next waypoint to go is [{next_waypoint}]!")
         print('action', next_waypoint)
         info = {}
         done = False
@@ -283,12 +280,14 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         self.overall_time = time.time() - self.time_start 
 
 
-    def move_to_wp(wp_x, wp_y, wp_ori):
+    def move_to_wp(self, wp_x, wp_y, wp_ori):
         pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
         pub.publish(PoseStamped(header=Header(time=rospy.Time.now(), frame_id='map'), pose=Pose(position=Point(x=wp_x, y=wp_y, z=0), orientation=Quaternion(*wp_ori))))
 
 
-    def move_base_action_client(goalx=0,goaly=0,goaltheta=0):
+    def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
+        rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
+
         client=actionlib.SimpleActionClient('move_base',move_base_msgs.msg.MoveBaseAction)
         client.wait_for_server(rospy.Duration(20))
         goal=move_base_msgs.msg.MoveBaseGoal()
@@ -297,10 +296,10 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         goal.target_pose.pose.position.x=goalx
         goal.target_pose.pose.position.y=goaly
         goal.target_pose.pose.position.z=0.0
-        q_angle = tf.transformations.quaternion_from_euler(0.0,0.0,goaltheta)
+        q_angle = quaternion_from_euler(0.0,0.0,goaltheta)
         q = geometry_msgs.msg.Quaternion(*q_angle)
         goal.target_pose.pose.orientation=q
-        rospy.loginfo("sending goal")
+        rospy.loginfo(f"[{self._name}] sending goal position {goalx}:{goaly}")
         client.send_goal(goal)
         client.wait_for_result()
         client.get_result()
@@ -308,6 +307,8 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
 
 
     def teleport(self, x, y):
+        rospy.loginfo(f"teleport [{self._name}] robot to the starting point")
+
         state_msg = ModelState()
         state_msg.model_name = "mir"
         state_msg.pose.position.x = x
@@ -316,7 +317,9 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
         resp = set_state(state_msg )
+        rospy.loginfo(f'[{self._name}] is teleported to {x}:{y}')
 
+        """
         pose_with_stamp_msg = PoseWithCovarianceStamped()
         pose_with_stamp_msg.pose.pose.position.x = x
         pose_with_stamp_msg.pose.pose.position.y = y
@@ -324,6 +327,7 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         pose_with_stamp = rospy.ServiceProxy(
             '/initialpose', PoseWithCovarianceStamped)
         resp = pose_with_stamp(pose_with_stamp_msg )
+        """
 
 
     def _get_robot_position(self):
@@ -362,6 +366,8 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
         If all the waypoints are delivered and the agent is back to the start point, 
         it gets an additional reward inversely proportional to time since start of episode.
         """
+        rospy.loginfo(f"[{self._name}] gets reward!")
+
         common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoint_time) + 0.0001)) - self.overall_time
         
         return common_reward
@@ -370,8 +376,11 @@ class DynamicObstacleNavigationMir100Sim(Simulation):
 #----------------------------------------------------------------------------------------#
 
 def run_episode(env,agent,verbose = 1):
-
+    rospy.loginfo("Starting new episode!")
+    
+    # For each new episode, the environment is reset and return the initial state of the robot which is start_point_index
     s = env.reset()
+    
     agent.reset_memory()
 
     # Max steps per episode (6 steps for 6 waypoints)
@@ -415,10 +424,14 @@ def run_episode(env,agent,verbose = 1):
 class DeliveryQAgent(QAgent):
 
     def __init__(self,*args,**kwargs):
+        self._name = 'mir100_rl_1'
+        rospy.loginfo(f"Initialize Q agent [{self._name}]!")
+
         super().__init__(*args,**kwargs)
         self.reset_memory()
 
     def act(self,s):
+        rospy.loginfo(f"[{self._name}] pick an action!")
 
         # Get Q Vector
         q = np.copy(self.Q[s,:])
@@ -450,7 +463,7 @@ def run_num_episodes(env,agent,num_episodes=500):
     rewards = []
 
     # Experience replay
-    for i in tqdm_notebook(range(num_episodes)):
+    for i in range(num_episodes):
 
         # Run the episode
         env,agent,episode_reward = run_episode(env,agent,verbose = 0)
@@ -468,10 +481,10 @@ def run_num_episodes(env,agent,num_episodes=500):
 #----------------------------------------------------------------------------------------#
 
 
-if __name__ == '__main__':
-    target_machine_ip = '127.0.0.1' # or other machine 'xxx.xxx.xxx.xxx'
+if __name__ == u'__main__':
+    rospy.init_node('mir100_rl_1', anonymous=True)
 
-    env = DynamicObstacleNavigationMir100Sim(ip=target_machine_ip, gui=True)
+    env = DynamicObstacleNavigationMir100Sim()
 
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
