@@ -18,13 +18,12 @@ from gazebo_msgs.msg import ModelState
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
 from tf.transformations import quaternion_from_euler
 from agents.q_agent import QAgent
-# import robo_gym_server_modules.robot_server.client as rs_client
 
 # Brings in the SimpleActionClient
 import actionlib
 import move_base_msgs.msg
 import geometry_msgs.msg
-import tf
+
 
 
 import sys
@@ -517,6 +516,7 @@ class DynamicObstacleNavigationMir100Sim:
         state_msg.model_name = "mir"
         state_msg.pose.position.x = x
         state_msg.pose.position.y = y
+
         rospy.wait_for_service('/gazebo/set_model_state')
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
