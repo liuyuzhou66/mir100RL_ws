@@ -13,7 +13,7 @@ from scipy.spatial.distance import cdist
 # from robo_gym.utils import utils, mir100_utils
 # from robo_gym.envs.mir100.mir100 import Mir100Env
 #from robo_gym.envs.simulation_wrapper import Simulation
-from gazebo_msgs.srv import GetModelState, SetModelState
+from gazebo_msgs.srv import GetModelState, SetModelState, SpawnModel, DeleteModel
 from gazebo_msgs.msg import ModelState 
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
 from tf.transformations import quaternion_from_euler
@@ -33,6 +33,10 @@ sys.path.append("../")
 
 
 WAYPOINT_POSITIONS = [-20,-29,0,-20.5,-10,0,-7,13.5,0,13.5,-6.5,0,21.5,-7,0,19,-32,0]
+#                    |---------|-----------|---------|-----------|---------|--------|
+#                         A          B          C          D          E         F
+#                         0          1          2          3          4         5
+
 WAYPOINT_YAWS = [90, 90, 90, 270, 30, 0]
 
 SPEED = 1
@@ -94,6 +98,183 @@ Reward: 1-  agent gets a reward of -1 for each second
             it gets an additional reward inversely proportional to time since start of episode.
 """
 
+WP_Label_Blue = '''<?xml version='1.0'?>
+<sdf version='1.6'>
+  <model name='NAME'>
+    <pose>0 0 3 0 0 0</pose>
+    <link name='NAME_link'>
+      <gravity>0</gravity>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <enable_wind>0</enable_wind>
+      <visual name='NAME_visual'>
+        <geometry>
+          <sphere>
+            <radius>0.5</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Blue</name>
+          </script>
+          <shader type='pixel'>
+            <normal_map>__default__</normal_map>
+          </shader>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <specular>1 0.01 0.01 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+    </link>
+    <static>1</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>
+'''
+
+WP_Label_Green = '''<?xml version='1.0'?>
+<sdf version='1.6'>
+  <model name='NAME'>
+    <pose>0 0 3 0 0 0</pose>
+    <link name='NAME_link'>
+      <gravity>0</gravity>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <enable_wind>0</enable_wind>
+      <visual name='NAME_visual'>
+        <geometry>
+          <sphere>
+            <radius>0.5</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Green</name>
+          </script>
+          <shader type='pixel'>
+            <normal_map>__default__</normal_map>
+          </shader>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <specular>1 0.01 0.01 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+    </link>
+    <static>1</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>
+'''
+
+
+WP_Label_Red = '''<?xml version='1.0'?>
+<sdf version='1.6'>
+  <model name='NAME'>
+    <pose>0 0 3 0 0 0</pose>
+    <link name='NAME_link'>
+      <gravity>0</gravity>
+      <self_collide>0</self_collide>
+      <kinematic>0</kinematic>
+      <enable_wind>0</enable_wind>
+      <visual name='NAME_visual'>
+        <geometry>
+          <sphere>
+            <radius>0.5</radius>
+          </sphere>
+        </geometry>
+        <material>
+          <lighting>1</lighting>
+          <script>
+            <uri>file://media/materials/scripts/gazebo.material</uri>
+            <name>Gazebo/Red</name>
+          </script>
+          <shader type='pixel'>
+            <normal_map>__default__</normal_map>
+          </shader>
+          <ambient>1 0 0 1</ambient>
+          <diffuse>1 0 0 1</diffuse>
+          <specular>1 0.01 0.01 1</specular>
+          <emissive>0 0 0 1</emissive>
+        </material>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
+      </visual>
+    </link>
+    <static>1</static>
+    <allow_auto_disable>1</allow_auto_disable>
+  </model>
+</sdf>
+'''
+
+
+class Waypoint_Label:
+    def __init__(self, model_name):
+        self.model_name = model_name
+        self.spawned = False
+
+    def delete(self):
+        rospy.wait_for_service('gazebo/delete_model', 5.0)
+        spawn_model_prox = rospy.ServiceProxy(
+            'gazebo/spawn_sdf_model', DeleteModel)
+        res = spawn_model_prox(self.model_name)
+        self.spawned = False
+
+    def spawn_blue(self, x, y):
+        if self.spawned:
+            self.delete()
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
+        spawn_model_prox = rospy.ServiceProxy(
+            'gazebo/spawn_sdf_model', SpawnModel)
+        spawn_pose = Pose()
+        spawn_pose.position.x = x
+        spawn_pose.position.y = y
+        model_xml = WP_Label_Blue.replace('NAME', self.model_name)
+
+        res = spawn_model_prox(
+            self.model_name, model_xml, '', spawn_pose, 'world')
+        self.spawned = True
+    
+    def spawn_green(self, x, y):
+        if self.spawned:
+            self.delete()
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
+        spawn_model_prox = rospy.ServiceProxy(
+            'gazebo/spawn_sdf_model', SpawnModel)
+        spawn_pose = Pose()
+        spawn_pose.position.x = x
+        spawn_pose.position.y = y
+        model_xml = WP_Label_Green.replace('NAME', self.model_name)
+
+        res = spawn_model_prox(
+            self.model_name, model_xml, '', spawn_pose, 'world')
+        self.spawned = True
+    
+    def spawn_red(self, x, y):
+        if self.spawned:
+            self.delete()
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
+        spawn_model_prox = rospy.ServiceProxy(
+            'gazebo/spawn_sdf_model', SpawnModel)
+        spawn_pose = Pose()
+        spawn_pose.position.x = x
+        spawn_pose.position.y = y
+        model_xml = WP_Label_Red.replace('NAME', self.model_name)
+
+        res = spawn_model_prox(
+            self.model_name, model_xml, '', spawn_pose, 'world')
+        self.spawned = True
+
+
 
 class DynamicObstacleNavigationMir100Sim:
     def __init__(self,**kwargs):
@@ -105,6 +286,16 @@ class DynamicObstacleNavigationMir100Sim:
             WAYPOINT_YAWS[i]
             )
             for i in range(len(WAYPOINT_YAWS))]
+
+        # Create a dictionary to store the spawn status of waypoint labels
+        self.waypoint_labels = {}
+
+        # Spawn blue sphere to waypoint by default
+        for j in range(len(WAYPOINT_YAWS)):
+            wp_name = f"Waypoint_{j}"
+            sphere = Waypoint_Label(wp_name)
+            self.waypoint_labels[wp_name] = sphere
+            sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
         # Set the robot initial position to starting point(1.5, -38.5, 0)
         self.all_points = [START_POINT]
@@ -237,7 +428,7 @@ class DynamicObstacleNavigationMir100Sim:
         return new_state, reward, done, info
 
 
-    def _play_action(self, next_waypoint):
+    def _play_action(self, action):
         """
         e.g.
         visited_points: [0, 2, 6]
@@ -251,7 +442,13 @@ class DynamicObstacleNavigationMir100Sim:
         waypoints_status            =   [0, 1, 0, 1, 0, 1]    in this case, we have 6 waypoints
         update waypoint status i    =    0  1  2  3  4  5
         """
-        action = next_waypoint
+
+        # Sets the color of the point the robot is currently heading to to red
+        for j in range(len(WAYPOINT_YAWS)):
+            if j == action:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_red(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
         # Move robot to next_waypoint
         wp = self.waypoints[action]
@@ -271,13 +468,20 @@ class DynamicObstacleNavigationMir100Sim:
                     # Will there be a situation where the coordinates cannot be exactly the same?
                     self.waypoints_status[i] = 1
         
+        # Update the color of waypoints that have been visited by the robot to green
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 1:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
+
         # Update the elapsed time for reaching each waypoint
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
                 self.waypoint_time[i] == time.time() - self.time_start 
 
         # Update the oveall time since agent left START_POINT
-        self.overall_time = time.time() - self.time_start 
+        self.overall_time = time.time() - self.time_start
 
 
     def move_to_wp(self, wp_x, wp_y, wp_ori):
