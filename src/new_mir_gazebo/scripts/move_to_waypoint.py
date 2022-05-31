@@ -40,15 +40,17 @@ OBS = '''<?xml version='1.0'?>
           </cylinder>
         </geometry>
         <material>
+          <lighting>1</lighting>
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
             <name>Gazebo/Purple</name>
           </script>
-          <ambient>1 1 1 1</ambient>
+          <shader type='pixel'>
+            <normal_map>__default__</normal_map>
+          </shader>
         </material>
-        <meta>
-          <layer>0</layer>
-        </meta>
+        <transparency>0</transparency>
+        <cast_shadows>1</cast_shadows>
       </visual>
     </link>
     <static>1</static>

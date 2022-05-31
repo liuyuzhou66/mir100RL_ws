@@ -100,7 +100,7 @@ Reward: 1-  agent gets a reward of -1 for each second
 WP_Label_Blue = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
-    <pose>0 0 3 0 0 0</pose>
+    <pose>0 0 3.0 0 0 0</pose>
     <link name='NAME_link'>
       <gravity>0</gravity>
       <self_collide>0</self_collide>
@@ -116,15 +116,11 @@ WP_Label_Blue = '''<?xml version='1.0'?>
           <lighting>1</lighting>
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Blue</name>
+            <name>Gazebo/SkyBlue</name>
           </script>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
-          <ambient>1 0 0 1</ambient>
-          <diffuse>1 0 0 1</diffuse>
-          <specular>1 0.01 0.01 1</specular>
-          <emissive>0 0 0 1</emissive>
         </material>
         <transparency>0</transparency>
         <cast_shadows>1</cast_shadows>
@@ -139,7 +135,7 @@ WP_Label_Blue = '''<?xml version='1.0'?>
 WP_Label_Green = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
-    <pose>0 0 3 0 0 0</pose>
+    <pose>0 0 3.0 0 0 0</pose>
     <link name='NAME_link'>
       <gravity>0</gravity>
       <self_collide>0</self_collide>
@@ -160,10 +156,6 @@ WP_Label_Green = '''<?xml version='1.0'?>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
           </shader>
-          <ambient>1 0 0 1</ambient>
-          <diffuse>1 0 0 1</diffuse>
-          <specular>1 0.01 0.01 1</specular>
-          <emissive>0 0 0 1</emissive>
         </material>
         <transparency>0</transparency>
         <cast_shadows>1</cast_shadows>
@@ -179,7 +171,7 @@ WP_Label_Green = '''<?xml version='1.0'?>
 WP_Label_Red = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
-    <pose>0 0 3 0 0 0</pose>
+    <pose>0 0 3.0 0 0 0</pose>
     <link name='NAME_link'>
       <gravity>0</gravity>
       <self_collide>0</self_collide>
@@ -237,6 +229,7 @@ class Waypoint_Label:
         spawn_pose = Pose()
         spawn_pose.position.x = x
         spawn_pose.position.y = y
+        spawn_pose.position.z = 2.0 
         model_xml = WP_Label_Blue.replace('NAME', self.model_name)
 
         res = spawn_model_prox(
@@ -252,6 +245,7 @@ class Waypoint_Label:
         spawn_pose = Pose()
         spawn_pose.position.x = x
         spawn_pose.position.y = y
+        spawn_pose.position.z = 2.0 
         model_xml = WP_Label_Green.replace('NAME', self.model_name)
 
         res = spawn_model_prox(
@@ -267,6 +261,7 @@ class Waypoint_Label:
         spawn_pose = Pose()
         spawn_pose.position.x = x
         spawn_pose.position.y = y
+        spawn_pose.position.z = 2.0 
         model_xml = WP_Label_Red.replace('NAME', self.model_name)
 
         res = spawn_model_prox(
@@ -580,7 +575,7 @@ class DynamicObstacleNavigationMir100Sim:
 #----------------------------------------------------------------------------------------#
 
 def run_episode(env,agent,verbose = 1):
-    rospy.loginfo("Starting new episode!")
+    rospy.loginfo("Starting a new episode!")
     
     # For each new episode, the environment is reset and return the initial state of the robot which is start_point_index
     s = env.reset()
@@ -662,7 +657,6 @@ class DeliveryQAgent(QAgent):
 
 
 def run_num_episodes(env,agent,num_episodes=500):
-
     # Store the rewards
     rewards = []
 
@@ -671,6 +665,7 @@ def run_num_episodes(env,agent,num_episodes=500):
 
         # Run the episode
         env,agent,episode_reward = run_episode(env,agent,verbose = 0)
+        rospy.loginfo(f"[mir100_rl_1] epsisode <{i}>!")
         rewards.append(episode_reward)
         
     # Show rewards
