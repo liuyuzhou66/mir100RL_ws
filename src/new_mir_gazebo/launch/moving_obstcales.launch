@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node pkg="new_mir_gazebo" type="move_to_waypoint.py" name="move_to_wp" output="screen" />
+</launch>

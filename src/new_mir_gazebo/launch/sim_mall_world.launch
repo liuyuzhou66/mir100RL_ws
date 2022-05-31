@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<launch>
+    <arg name="initial_pose_x"  default="1.5"/>
+    <arg name="initial_pose_y"  default="-38.5"/>
+
+    <arg name="gui"         default="true"/>
+    <arg name="gazebo_gui"  default="true"/>
+    <arg name="server_port" default="50051"/>
+
+    <arg name="map_file" default="$(find new_mir_gazebo)/maps/mallmap.yaml" doc="Path to a map .yaml file (required)." />
+    <arg name="virtual_walls_map_file" default="$(arg map_file)" doc="Path to a virtual walls map .yaml file (optional)." />
+    <arg name="with_virtual_walls" default="false" />
+
+    <!-- Spawn robot and bring up controllers etc. -->
+    <include file="$(find new_mir_gazebo)/launch/mir_empty_world.launch">
+        <arg name="gui" value="$(arg gui)" />
+        <arg name="robot_x" value="$(arg initial_pose_x)" />
+        <arg name="robot_y" value="$(arg initial_pose_y)" />
+    </include>
+    
+    <!-- Spawn the mall -->
+    <include file="$(find new_mir_gazebo)/launch/includes/spawn_mall.launch.xml" />
+    
+    <!-- Spawn the moving obstcales -->
+    <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" />
+
+    <!-- Launch amcl localization node -->
+    <include file="$(find mir_navigation)/launch/amcl.launch">
+        <arg name="initial_pose_x"     value="$(arg initial_pose_x)"/>
+        <arg name="initial_pose_y"     value="$(arg initial_pose_y)"/>
+    </include>
+
+    <!-- Launch robot_pose publisher -->
+    <!--node name="robot_pose_publisher" pkg="mir100_robot_server" type="robot_pose_publisher.py" respawn="false" output="screen">
+    </node-->
+
+    <!-- Launch navigation planner -->
+    <include file="$(find mir_navigation)/launch/start_planner.launch">
+        <arg name="map_file" value="$(arg map_file)" />
+        <!--arg name="virtual_walls_map_file" value="$(arg virtual_walls_map_file)" /-->
+        <arg name="with_virtual_walls" value="$(arg with_virtual_walls)" />
+    </include>
+
+    <!-- Launch Command Handler -->
+    <!--node name="cmd_vel_command_handler" pkg="mir100_robot_server" type="cmd_vel_command_handler.py" respawn="false" output="screen">
+        <param name="action_cycle_rate" value="10"></param>
+    </node-->
+
+    <!-- Launch RViz -->
+    <node if="$(arg gui)" name="$(anon rviz)" pkg="rviz" type="rviz" respawn="false"
+        args="-d $(find new_mir_gazebo)/rviz/mir_rob_rl.rviz" output="screen">
+    </node>
+
+    <!--node if="$(arg gui)" name="$(anon rviz)" pkg="rviz" type="rviz" respawn="false"
+        args="-d $(find mir_navigation)/rviz/navigation.rviz" output="screen">
+    </node-->
+
+    <!--Launch gRPC server -->
+    <!--node name="robot_server" pkg="mir100_robot_server" type="robot_server.py" respawn="false" output="screen">
+        <param name="server_port" value="$(arg server_port)"></param>
+        <param name="real_robot"  value="false"></param>
+    </node-->
+</launch>

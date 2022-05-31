@@ -1,0 +1,5 @@
+<?xml version="1.0"?>
+<launch>
+  <node name="spawn_mall" pkg="gazebo_ros" type="spawn_model" args="-sdf
+      -file $(find new_mir_gazebo)/sdf/mall/model.sdf -model walls" output="screen" />
+</launch>
