@@ -314,7 +314,7 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Initialize
         self.visited_points = []    # The index of visited points, the index of starting point is "0"
-        self.waypoint_time = []     # Time since waypoints have been reached
+        self.waypoints_time = []     # Time since waypoints have been reached
         """
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
@@ -344,7 +344,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.waypoints_status = [0] * self.num_waypoints
         
         # Reset time since waypoints have been reached to 0
-        self.waypoint_time = [0] * self.num_waypoints
+        self.waypoints_time = [0] * self.num_waypoints
 
         # teleport robot to the starting point
         self.teleport(self.StartPoint_x, self.StartPoint_y)
@@ -381,6 +381,7 @@ class DynamicObstacleNavigationMir100Sim:
         
         # Get reward from previous state and action
         reward_before_action = self._get_reward()
+        rospy.loginfo(f"[{self._name}] gets reward before action!")
 
         # Update the waypoints_status and the time elapsed
         self._play_action(action)
@@ -407,6 +408,7 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Get reward for new action
         reward = self._get_reward() - reward_before_action + basic_reward
+        rospy.loginfo(f"[{self._name}] gets reward for new action [{action}]!")
 
         # End episode when all waypoints have been visited
         if np.sum(self.waypoints_status) == self.num_waypoints:
@@ -462,6 +464,7 @@ class DynamicObstacleNavigationMir100Sim:
                 if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.1 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.1: 
                     # Will there be a situation where the coordinates cannot be exactly the same?
                     self.waypoints_status[i] = 1
+        rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         
         # Update the color of waypoints that have been visited by the robot to green
         for j in range(len(WAYPOINT_YAWS)):
@@ -469,11 +472,13 @@ class DynamicObstacleNavigationMir100Sim:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
+        
 
         # Update the elapsed time for reaching each waypoint
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
-                self.waypoint_time[i] == time.time() - self.time_start 
+                self.waypoints_time[i] == time.time() - self.time_start
+        rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
 
         # Update the oveall time since agent left START_POINT
         self.overall_time = time.time() - self.time_start
@@ -538,6 +543,7 @@ class DynamicObstacleNavigationMir100Sim:
         resp = get_state(model_name = "mir")
         self.mir100_pos_x = resp.pose.position.x
         self.mir100_pos_y = resp.pose.position.y
+        rospy.loginfo(f"[{self._name}] get robot current position: {self.mir100_pos_x} {self.mir100_pos_y}!")
         return self.mir100_pos_x, self.mir100_pos_y
 
 
@@ -567,9 +573,7 @@ class DynamicObstacleNavigationMir100Sim:
         If all the waypoints are delivered and the agent is back to the start point, 
         it gets an additional reward inversely proportional to time since start of episode.
         """
-        rospy.loginfo(f"[{self._name}] gets reward!")
-
-        common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoint_time) + 0.0001)) - self.overall_time
+        common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.0001)) - self.overall_time
         
         return common_reward
 
