@@ -1,1 +1,0 @@
-/home/liu/mir100RL_ws/devel/.private/new_mir_gazebo/share/new_mir_gazebo/cmake/new_mir_gazeboConfig.cmake

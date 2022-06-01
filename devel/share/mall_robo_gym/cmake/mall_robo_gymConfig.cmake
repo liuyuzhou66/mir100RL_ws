@@ -1,1 +1,0 @@
-/home/liu/mir100RL_ws/devel/.private/mall_robo_gym/share/mall_robo_gym/cmake/mall_robo_gymConfig.cmake

@@ -1,1 +1,0 @@
-/home/liu/mir100RL_ws/devel/.private/new_mir_gazebo/lib/pkgconfig/new_mir_gazebo.pc
