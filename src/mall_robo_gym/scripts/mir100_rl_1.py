@@ -167,7 +167,6 @@ WP_Label_Green = '''<?xml version='1.0'?>
 </sdf>
 '''
 
-
 WP_Label_Red = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
@@ -212,12 +211,14 @@ class Waypoint_Label:
     def __init__(self, model_name):
         self.model_name = model_name
         self.spawned = False
+        self.rate = rospy.Rate(10)
 
     def delete(self):
         rospy.wait_for_service('gazebo/delete_model', 5.0)
         spawn_model_prox = rospy.ServiceProxy(
-            'gazebo/spawn_sdf_model', DeleteModel)
+            'gazebo/delete_model', DeleteModel)
         res = spawn_model_prox(self.model_name)
+        self.rate.sleep()
         self.spawned = False
 
     def spawn_blue(self, x, y):
@@ -329,7 +330,7 @@ class DynamicObstacleNavigationMir100Sim:
             self._generate_q_values()
 
         # Restart the environment on a new episode. Return the start_point_index
-        self.reset()
+        # self.reset()
 
 
     def reset(self):
@@ -365,7 +366,7 @@ class DynamicObstacleNavigationMir100Sim:
 
     # The action is next waypoint to go (next_waypoint)
     def step(self, next_waypoint):
-        rospy.loginfo(f"[{self._name}] action: index of next waypoint to go is [{next_waypoint}]!")
+        rospy.loginfo(f"[{self._name}] executes step(action), action: index of next waypoint to go is [{next_waypoint}]!")
         print('action', next_waypoint)
         info = {}
         done = False
@@ -497,15 +498,16 @@ class DynamicObstacleNavigationMir100Sim:
         q_angle = quaternion_from_euler(0.0,0.0,goaltheta)
         q = geometry_msgs.msg.Quaternion(*q_angle)
         goal.target_pose.pose.orientation=q
-        rospy.loginfo(f"[{self._name}] sending goal position {goalx}:{goaly}")
+        rospy.loginfo(f"[{self._name}] sending next wayppoint position {goalx}:{goaly}")
         client.send_goal(goal)
         client.wait_for_result()
-        client.get_result()
+        res = client.get_result()
+        rospy.loginfo(f"RESULT: {res}")
         return
 
 
     def teleport(self, x, y):
-        rospy.loginfo(f"teleport [{self._name}] robot to the starting point")
+        rospy.loginfo(f"Teleport [{self._name}] robot to the starting point")
 
         state_msg = ModelState()
         state_msg.model_name = "mir"
@@ -575,7 +577,8 @@ class DynamicObstacleNavigationMir100Sim:
 #----------------------------------------------------------------------------------------#
 
 def run_episode(env,agent,verbose = 1):
-    rospy.loginfo("Starting a new episode!")
+    
+    rospy.loginfo(f"[mir100_rl_1] starts a new episode!")
     
     # For each new episode, the environment is reset and return the initial state of the robot which is start_point_index
     s = env.reset()
@@ -624,13 +627,13 @@ class DeliveryQAgent(QAgent):
 
     def __init__(self,*args,**kwargs):
         self._name = 'mir100_rl_1'
-        rospy.loginfo(f"Initialize Q agent [{self._name}]!")
+        rospy.loginfo(f"Initialize QAgent [{self._name}]!")
 
         super().__init__(*args,**kwargs)
         self.reset_memory()
 
     def act(self,s):
-        rospy.loginfo(f"[{self._name}] pick an action!")
+        rospy.loginfo(f"[{self._name}] picks an action!")
 
         # Get Q Vector
         q = np.copy(self.Q[s,:])
@@ -664,8 +667,8 @@ def run_num_episodes(env,agent,num_episodes=500):
     for i in range(num_episodes):
 
         # Run the episode
-        env,agent,episode_reward = run_episode(env,agent,verbose = 0)
         rospy.loginfo(f"[mir100_rl_1] epsisode <{i}>!")
+        env,agent,episode_reward = run_episode(env,agent,verbose = 0)
         rewards.append(episode_reward)
         
     # Show rewards
