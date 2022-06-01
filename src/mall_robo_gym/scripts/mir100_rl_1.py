@@ -56,7 +56,7 @@ class Waypoint:
         )[0][0] / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
-START_POINT = Waypoint(Point(1.5, -38.5, 0), 0)
+START_POINT = Waypoint(Point(1,7, -38.5, 0), 0)
 
 """
 Q matrix:
@@ -97,7 +97,8 @@ Reward: 1-  agent gets a reward of -1 for each second
             it gets an additional reward inversely proportional to time since start of episode.
 """
 
-WP_Label_Blue = '''<?xml version='1.0'?>
+
+WP_Label = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
     <pose>0 0 3.0 0 0 0</pose>
@@ -116,7 +117,7 @@ WP_Label_Blue = '''<?xml version='1.0'?>
           <lighting>1</lighting>
           <script>
             <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/SkyBlue</name>
+            <name>Gazebo/COLOR</name>
           </script>
           <shader type='pixel'>
             <normal_map>__default__</normal_map>
@@ -132,79 +133,6 @@ WP_Label_Blue = '''<?xml version='1.0'?>
 </sdf>
 '''
 
-WP_Label_Green = '''<?xml version='1.0'?>
-<sdf version='1.6'>
-  <model name='NAME'>
-    <pose>0 0 3.0 0 0 0</pose>
-    <link name='NAME_link'>
-      <gravity>0</gravity>
-      <self_collide>0</self_collide>
-      <kinematic>0</kinematic>
-      <enable_wind>0</enable_wind>
-      <visual name='NAME_visual'>
-        <geometry>
-          <sphere>
-            <radius>0.5</radius>
-          </sphere>
-        </geometry>
-        <material>
-          <lighting>1</lighting>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Green</name>
-          </script>
-          <shader type='pixel'>
-            <normal_map>__default__</normal_map>
-          </shader>
-        </material>
-        <transparency>0</transparency>
-        <cast_shadows>1</cast_shadows>
-      </visual>
-    </link>
-    <static>1</static>
-    <allow_auto_disable>1</allow_auto_disable>
-  </model>
-</sdf>
-'''
-
-WP_Label_Red = '''<?xml version='1.0'?>
-<sdf version='1.6'>
-  <model name='NAME'>
-    <pose>0 0 3.0 0 0 0</pose>
-    <link name='NAME_link'>
-      <gravity>0</gravity>
-      <self_collide>0</self_collide>
-      <kinematic>0</kinematic>
-      <enable_wind>0</enable_wind>
-      <visual name='NAME_visual'>
-        <geometry>
-          <sphere>
-            <radius>0.5</radius>
-          </sphere>
-        </geometry>
-        <material>
-          <lighting>1</lighting>
-          <script>
-            <uri>file://media/materials/scripts/gazebo.material</uri>
-            <name>Gazebo/Red</name>
-          </script>
-          <shader type='pixel'>
-            <normal_map>__default__</normal_map>
-          </shader>
-          <ambient>1 0 0 1</ambient>
-          <diffuse>1 0 0 1</diffuse>
-          <specular>1 0.01 0.01 1</specular>
-          <emissive>0 0 0 1</emissive>
-        </material>
-        <transparency>0</transparency>
-        <cast_shadows>1</cast_shadows>
-      </visual>
-    </link>
-    <static>1</static>
-    <allow_auto_disable>1</allow_auto_disable>
-  </model>
-</sdf>
-'''
 
 
 class Waypoint_Label:
@@ -215,13 +143,13 @@ class Waypoint_Label:
 
     def delete(self):
         rospy.wait_for_service('gazebo/delete_model', 5.0)
+        self.rate.sleep()
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/delete_model', DeleteModel)
         res = spawn_model_prox(self.model_name)
-        self.rate.sleep()
         self.spawned = False
 
-    def spawn_blue(self, x, y):
+    def _spawn(self, x, y, color):
         if self.spawned:
             self.delete()
         rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
@@ -231,43 +159,21 @@ class Waypoint_Label:
         spawn_pose.position.x = x
         spawn_pose.position.y = y
         spawn_pose.position.z = 2.0 
-        model_xml = WP_Label_Blue.replace('NAME', self.model_name)
-
+        model_xml = WP_Label.replace('NAME', self.model_name)
+        model_xml = model_xml.replace('COLOR', color)
+        self.rate.sleep()
         res = spawn_model_prox(
             self.model_name, model_xml, '', spawn_pose, 'world')
         self.spawned = True
+
+    def spawn_blue(self, x, y):
+        self._spawn(x, y, 'SkyBlue')
     
     def spawn_green(self, x, y):
-        if self.spawned:
-            self.delete()
-        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
-        spawn_model_prox = rospy.ServiceProxy(
-            'gazebo/spawn_sdf_model', SpawnModel)
-        spawn_pose = Pose()
-        spawn_pose.position.x = x
-        spawn_pose.position.y = y
-        spawn_pose.position.z = 2.0 
-        model_xml = WP_Label_Green.replace('NAME', self.model_name)
-
-        res = spawn_model_prox(
-            self.model_name, model_xml, '', spawn_pose, 'world')
-        self.spawned = True
+        self._spawn(x, y, 'Green')
     
     def spawn_red(self, x, y):
-        if self.spawned:
-            self.delete()
-        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
-        spawn_model_prox = rospy.ServiceProxy(
-            'gazebo/spawn_sdf_model', SpawnModel)
-        spawn_pose = Pose()
-        spawn_pose.position.x = x
-        spawn_pose.position.y = y
-        spawn_pose.position.z = 2.0 
-        model_xml = WP_Label_Red.replace('NAME', self.model_name)
-
-        res = spawn_model_prox(
-            self.model_name, model_xml, '', spawn_pose, 'world')
-        self.spawned = True
+        self._spawn(x, y, 'Red')
 
 
 

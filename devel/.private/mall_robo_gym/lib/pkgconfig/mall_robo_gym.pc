@@ -1,0 +1,8 @@
+prefix=/home/dfki.uni-bremen.de/abresser/mir100RL_ws/devel/.private/mall_robo_gym
+
+Name: mall_robo_gym
+Description: Description of mall_robo_gym
+Version: 1.1.5
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 

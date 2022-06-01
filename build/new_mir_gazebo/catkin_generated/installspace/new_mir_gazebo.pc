@@ -1,0 +1,8 @@
+prefix=/home/dfki.uni-bremen.de/abresser/mir100RL_ws/install
+
+Name: new_mir_gazebo
+Description: Description of new_mir_gazebo
+Version: 1.1.5
+Cflags: 
+Libs: -L${prefix}/lib 
+Requires: 
