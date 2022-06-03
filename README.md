@@ -12,3 +12,6 @@ roslaunch mall_robo_gym mir100_rl_1.launch
 
 ## Plot the result
 ![image](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Rewards_and_OverallTime.png)
+
+## Plot the Q table
+![image](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Q_table.png)
