@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import time
 import math
 import rospy 
 import numpy as np
@@ -253,7 +252,8 @@ class DynamicObstacleNavigationMir100Sim:
         self.teleport(self.StartPoint_x, self.StartPoint_y)
 
         # Get the time robot start path planning
-        self.time_start = time.time()
+        time = rospy.get_rostime()
+        self.time_start = time.to_sec()
         rospy.loginfo(f"[{self._name}] The time to start timing is [{self.time_start}]")
 
         # Reset the overall time to 0
@@ -324,6 +324,7 @@ class DynamicObstacleNavigationMir100Sim:
         if self.overall_time >= self.max_time:
             done = True
             info['final_status'] = 'max_time_exceeded'
+            rospy.loginfo(f"[{self._name}] max_time_exceeded!")
         
         return new_state, reward, done, info
 
@@ -380,11 +381,16 @@ class DynamicObstacleNavigationMir100Sim:
         # Update the elapsed time for reaching each waypoint
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
-                self.waypoints_time[i] == time.time() - self.time_start
+                time = rospy.get_rostime()
+                time_s = time.to_sec()
+                self.waypoints_time[i] == time_s - self.time_start
         rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
 
         # Update the oveall time since agent left START_POINT
-        self.overall_time = time.time() - self.time_start
+        time = rospy.get_rostime()
+        tim_s = time.to_sec()
+        self.overall_time = tim_s - self.time_start
+        rospy.loginfo(f"[{self._name}] updates overall_time, done!")
 
 
     def move_to_wp(self, wp_x, wp_y, wp_ori):
@@ -426,7 +432,7 @@ class DynamicObstacleNavigationMir100Sim:
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
         resp = set_state(state_msg )
-        rospy.loginfo(f'[{self._name}] is teleported to {x}:{y}')
+        rospy.loginfo(f'[{self._name}] is teleported to ({x},{y})')
 
         """
         pose_with_stamp_msg = PoseWithCovarianceStamped()
@@ -485,7 +491,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 def run_episode(env,agent,verbose = 1):
     
-    rospy.loginfo(f"[mir100_rl_1] starts a new episode!")
+    rospy.loginfo("[mir100_rl_1] starts a new episode!")
     
     # For each new episode, the environment is reset and return the initial state of the robot which is start_point_index
     s = env.reset()
@@ -507,12 +513,14 @@ def run_episode(env,agent,verbose = 1):
 
         # Choose an action
         a = agent.act(s)
+        rospy.loginfo(f"[mir100_rl_1] picks an action <{a}>!")
         
         # Take the action, and get the reward from environment
         s_next,r,done,info = env.step(a)
 
         # Print out: next waypoint to go, reward of current step, and whether this episode done or not
-        if verbose: print(s_next,r,done,info)
+        if verbose: 
+            print(s_next,r,done,info)
         
         # For each action, use the Bellman equation to update our knowledge in the existing Q-table
         agent.train(s,a,r,s_next)
@@ -520,6 +528,7 @@ def run_episode(env,agent,verbose = 1):
         # Update the caches
         episode_reward += r # The total reward of each episode
         s = s_next
+        rospy.loginfo(f"[mir100_rl_1]'s step <{i}> is done!")
         
         # If the episode is terminated
         i += 1
@@ -540,8 +549,6 @@ class DeliveryQAgent(QAgent):
         self.reset_memory()
 
     def act(self,s):
-        rospy.loginfo(f"[{self._name}] picks an action!")
-
         # Get Q Vector
         q = np.copy(self.Q[s,:])
 
@@ -569,19 +576,26 @@ class DeliveryQAgent(QAgent):
 def run_num_episodes(env,agent,num_episodes=500):
     # Store the rewards
     rewards = []
+    overall_times = []
 
     # Experience replay
     for i in range(num_episodes):
 
         # Run the episode
-        rospy.loginfo(f"[mir100_rl_1] epsisode <{i}>!")
+        rospy.loginfo(f"[mir100_rl_1] episode <{i}>!")
         env,agent,episode_reward = run_episode(env,agent,verbose = 0)
+
+        overall_times.append(env.overall_time)
         rewards.append(episode_reward)
         
-    # Show rewards
-    plt.figure(figsize = (15,3))
-    plt.title("Rewards over training")
-    plt.plot(rewards)
+    # Show rewards and overall time
+    fig, ax = plt.subplots(2, 1, figsize=(15,7.5))
+    ax[0].plot(rewards)
+    ax[1].plot(overall_times)
+    ax[0].set_title("Rewards over Training")
+    ax[1].set_title("Overall Time Taken over Training")
+    fig.tight_layout()
+    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 300)
     plt.show()
 
     return env,agent
