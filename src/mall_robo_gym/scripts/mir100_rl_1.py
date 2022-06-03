@@ -441,6 +441,16 @@ class DynamicObstacleNavigationMir100Sim:
         resp = set_state(state_msg )
         rospy.loginfo(f'[{self._name}] is teleported to the starting point({x},{y})')
 
+        
+        pose_with_stamp_msg = PoseWithCovarianceStamped()
+        pose_with_stamp_msg.pose.pose.position.x = x
+        pose_with_stamp_msg.pose.pose.position.y = y
+        #rospy.wait_for_service('/initialpose')
+        pose_with_stamp = rospy.Publisher(
+            '/initialpose', PoseWithCovarianceStamped, queue_size=10)
+        resp = pose_with_stamp.publish(pose_with_stamp_msg )
+        
+
 
     def _get_robot_position(self):
         rospy.wait_for_service('/gazebo/get_model_state')
@@ -597,7 +607,7 @@ def run_num_episodes(env,agent,num_episodes=500):
     ax[1].set_xlabel("Episode")
     ax[1].set_ylabel("Overall Time (Unit: second)")
     fig.tight_layout()
-    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 120)
+    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 200)
     plt.show()
 
     return env,agent
