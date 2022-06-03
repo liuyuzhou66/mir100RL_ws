@@ -594,8 +594,12 @@ def run_num_episodes(env,agent,num_episodes=500):
     ax[1].plot(overall_times)
     ax[0].set_title("Rewards over Training")
     ax[1].set_title("Overall Time Taken over Training")
+    ax[0].set_xlabel("Episode")
+    ax[0].set_ylabel("Rewards")
+    ax[1].set_xlabel("Episode")
+    ax[1].set_ylabel("Overall Time (Unit: second)")
     fig.tight_layout()
-    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 300)
+    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 120)
     plt.show()
 
     return env,agent
