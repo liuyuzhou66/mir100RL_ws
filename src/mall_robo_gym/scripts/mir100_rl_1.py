@@ -4,10 +4,10 @@
 import math
 import rospy 
 import numpy as np
-from dataclasses import dataclass
-# from tqdm import tqdm_notebook
+import pandas as pd
 import matplotlib.pyplot as plt
 from std_msgs.msg import Header
+from dataclasses import dataclass
 from scipy.spatial.distance import cdist
 # from robo_gym.utils import utils, mir100_utils
 # from robo_gym.envs.mir100.mir100 import Mir100Env
@@ -27,12 +27,9 @@ import sys
 sys.path.append("../")
 
 
-WAYPOINT_POSITIONS = [-20,-29,0,-20.5,-10,0,-7,13.5,0,13.5,-6.5,0,21.5,-7,0,19,-32,0]
-#                    |---------|-----------|---------|-----------|---------|--------|
-#                         A          B          C          D          E         F
-#                         0          1          2          3          4         5
+WAYPOINT_POSITIONS = [0,-32,0,4,-34,0,7,-37,0,8.5,-26.5,0,12,-34,0,-3.5,-34,0]
 
-WAYPOINT_YAWS = [90, 90, 90, 270, 30, 0]
+WAYPOINT_YAWS = [90, 90, 90, 90, 90, 90]
 
 SPEED = 1
 
@@ -52,7 +49,7 @@ class Waypoint:
         )[0][0] / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
-START_POINT = Waypoint(Point(1, -38.5, 0), 0)
+START_POINT = Waypoint(Point(0, -38, 0), 0)
 
 """
 Q matrix:
@@ -97,7 +94,7 @@ Reward: 1-  agent gets a reward of -1 for each second
 WP_Label = '''<?xml version='1.0'?>
 <sdf version='1.6'>
   <model name='NAME'>
-    <pose>0 0 3.0 0 0 0</pose>
+    <pose>0 0 2.0 0 0 0</pose>
     <link name='NAME_link'>
       <gravity>0</gravity>
       <self_collide>0</self_collide>
@@ -138,7 +135,7 @@ class Waypoint_Label:
         self.rate = rospy.Rate(10)
 
     def delete(self):
-        rospy.wait_for_service('gazebo/delete_model', 5.0)
+        rospy.wait_for_service('gazebo/delete_model', 8.0)
         self.rate.sleep()
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/delete_model', DeleteModel)
@@ -148,7 +145,7 @@ class Waypoint_Label:
     def _spawn(self, x, y, color):
         if self.spawned:
             self.delete()
-        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 8.0)
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/spawn_sdf_model', SpawnModel)
         spawn_pose = Pose()
@@ -221,7 +218,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 900        # Maximum time for each episode: 0.25 h = 15 min = 900 s
+        self.max_time = 900         # Maximum time for each episode: 0.25 h = 15 min = 900 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -269,8 +266,8 @@ class DynamicObstacleNavigationMir100Sim:
 
     # The action is next waypoint to go (next_waypoint)
     def step(self, next_waypoint):
-        rospy.loginfo(f"[{self._name}] executes step(action), action: index of next waypoint to go is [{next_waypoint}]!")
-        print('action', next_waypoint)
+        rospy.loginfo(f"[{self._name}] executes step(action), action: index of next waypoint to go is [{next_waypoint}] ({self.waypoints[next_waypoint].position.x}, {self.waypoints[next_waypoint].position.y})!")
+        # print('action', next_waypoint)
         info = {}
         done = False
         action =  next_waypoint
@@ -284,7 +281,7 @@ class DynamicObstacleNavigationMir100Sim:
         
         # Get reward from previous state and action
         reward_before_action = self._get_reward()
-        rospy.loginfo(f"[{self._name}] gets reward before action!")
+        rospy.loginfo(f"[{self._name}] gets reward before action: {reward_before_action}!")
 
         # Update the waypoints_status and the time elapsed
         self._play_action(action)
@@ -311,7 +308,7 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Get reward for new action
         reward = self._get_reward() - reward_before_action + basic_reward
-        rospy.loginfo(f"[{self._name}] gets reward for new action [{action}]!")
+        rospy.loginfo(f"[{self._name}] gets reward for new action [{action}: {reward}]!")
 
         # End episode when all waypoints have been visited
         if np.sum(self.waypoints_status) == self.num_waypoints:
@@ -320,11 +317,13 @@ class DynamicObstacleNavigationMir100Sim:
             ## Additional reward inversely proportional to time since start of episode.
             reward += (self.max_time/(self.overall_time + 0.0001)) * self.addi_reward_multiply_value
 
+        """
         # Episode end if maximum time is reached
         if self.overall_time >= self.max_time:
             done = True
             info['final_status'] = 'max_time_exceeded'
             rospy.loginfo(f"[{self._name}] max_time_exceeded!")
+        """
         
         return new_state, reward, done, info
 
@@ -362,13 +361,19 @@ class DynamicObstacleNavigationMir100Sim:
         self._get_robot_position()
         
         # Update the waypoint_status
+        """
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
                 # When the robot reaches the waypoint
-                if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.1 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.1: 
+                if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.5 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.5: 
                     # Will there be a situation where the coordinates cannot be exactly the same?
                     self.waypoints_status[i] = 1
+        """
+        if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.5 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.5: 
+            self.waypoints_status[action] = 1
+
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
+        rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
         
         # Update the color of waypoints that have been visited by the robot to green
         for j in range(len(WAYPOINT_YAWS)):
@@ -383,7 +388,8 @@ class DynamicObstacleNavigationMir100Sim:
             if self.waypoints_status[i] == 0:
                 time = rospy.get_rostime()
                 time_s = time.to_sec()
-                self.waypoints_time[i] == time_s - self.time_start
+                self.waypoints_time[i] = time_s - self.time_start
+                rospy.loginfo(f"[{self._name}] waypoints_time[{i}] = {self.waypoints_time[i]}, done!")
         rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
 
         # Update the oveall time since agent left START_POINT
@@ -391,6 +397,7 @@ class DynamicObstacleNavigationMir100Sim:
         tim_s = time.to_sec()
         self.overall_time = tim_s - self.time_start
         rospy.loginfo(f"[{self._name}] updates overall_time, done!")
+        rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
 
 
     def move_to_wp(self, wp_x, wp_y, wp_ori):
@@ -432,17 +439,7 @@ class DynamicObstacleNavigationMir100Sim:
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
         resp = set_state(state_msg )
-        rospy.loginfo(f'[{self._name}] is teleported to ({x},{y})')
-
-        """
-        pose_with_stamp_msg = PoseWithCovarianceStamped()
-        pose_with_stamp_msg.pose.pose.position.x = x
-        pose_with_stamp_msg.pose.pose.position.y = y
-        rospy.wait_for_service('/initialpose')
-        pose_with_stamp = rospy.ServiceProxy(
-            '/initialpose', PoseWithCovarianceStamped)
-        resp = pose_with_stamp(pose_with_stamp_msg )
-        """
+        rospy.loginfo(f'[{self._name}] is teleported to the starting point({x},{y})')
 
 
     def _get_robot_position(self):
@@ -517,6 +514,7 @@ def run_episode(env,agent,verbose = 1):
         
         # Take the action, and get the reward from environment
         s_next,r,done,info = env.step(a)
+        rospy.loginfo(f"for action <{a}>, [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
 
         # Print out: next waypoint to go, reward of current step, and whether this episode done or not
         if verbose: 
@@ -528,7 +526,7 @@ def run_episode(env,agent,verbose = 1):
         # Update the caches
         episode_reward += r # The total reward of each episode
         s = s_next
-        rospy.loginfo(f"[mir100_rl_1]'s step <{i}> is done!")
+        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
         
         # If the episode is terminated
         i += 1
@@ -587,7 +585,7 @@ def run_num_episodes(env,agent,num_episodes=500):
 
         overall_times.append(env.overall_time)
         rewards.append(episode_reward)
-        
+    
     # Show rewards and overall time
     fig, ax = plt.subplots(2, 1, figsize=(15,7.5))
     ax[0].plot(rewards)
@@ -615,4 +613,25 @@ if __name__ == u'__main__':
 
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    run_num_episodes(env,agent,num_episodes = 200)
+    run_num_episodes(env,agent,num_episodes = 5)
+
+    # Plot the Q table
+    fig, ax = plt.subplots(1, 1, figsize=(12,3))
+    data = agent.Q
+    column_labels = ['waypoint %d' % y for y in range(env.action_space)]
+    row_labels = ['Starting point']
+    row_labels += column_labels
+    df = pd.DataFrame(data,columns=column_labels)
+    ax.axis('tight')
+    ax.axis('off')
+    ax.table(cellText=df.values,
+            rowLabels=row_labels,
+            colLabels=df.columns,
+            rowColours =["yellow"] * env.state_space,  
+            colColours =["yellow"] * env.action_space,
+            loc="center",
+            cellLoc="center",
+            rowLoc="center")
+    ax.set_title("Q Table")
+    plt.savefig('../Results_Plot/Q_table.png', dpi = 200)
+    plt.show()
