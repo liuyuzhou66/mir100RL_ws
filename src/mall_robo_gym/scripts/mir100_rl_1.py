@@ -502,7 +502,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 #----------------------------------------------------------------------------------------#
 
-def run_episode(env,agent,verbose = 1):
+def run_episode(env,agent):
     
     rospy.loginfo("[mir100_rl_1] starts a new episode!")
     
@@ -526,15 +526,11 @@ def run_episode(env,agent,verbose = 1):
 
         # Choose an action
         a = agent.act(s)
-        rospy.loginfo(f"[mir100_rl_1] picks an action <{a}>!")
+        rospy.loginfo(f"[mir100_rl_1] picks an action ({a})!")
         
         # Take the action, and get the reward from environment
         s_next,r,done,info = env.step(a)
-        rospy.loginfo(f"for action <{a}>, [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
-
-        # Print out: next waypoint to go, reward of current step, and whether this episode done or not
-        if verbose: 
-            print(s_next,r,done,info)
+        rospy.loginfo(f"for action ({a}), [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
         
         # For each action, use the Bellman equation to update our knowledge in the existing Q-table
         agent.train(s,a,r,s_next)
@@ -591,6 +587,7 @@ def run_num_episodes(env,agent,num_episodes=500):
     # Store the rewards
     rewards = []
     overall_times = []
+    num_training = env.num_waypoints * num_episodes
 
     # Experience replay
     for i in range(num_episodes):
@@ -601,18 +598,23 @@ def run_num_episodes(env,agent,num_episodes=500):
 
         overall_times.append(env.overall_time)
         rewards.append(episode_reward)
-    
+        
     # Show rewards and overall time
-    fig, ax = plt.subplots(2, 1, figsize=(15,7.5))
+    fig, ax = plt.subplots(3, 1, figsize=(15,15))
     ax[0].plot(rewards)
     ax[1].plot(overall_times)
-    ax[0].set_title("Rewards over Training")
-    ax[1].set_title("Overall Time Taken over Training")
+    ax[2].plot(agent.exploration_rate)
+    ax[0].set_title(f"Rewards over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+    ax[1].set_title(f"Overall Time Taken over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+    ax[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
     ax[0].set_xlabel("Episode")
     ax[0].set_ylabel("Rewards")
     ax[1].set_xlabel("Episode")
     ax[1].set_ylabel("Overall Time (Unit: second)")
+    ax[2].set_xlabel(f"Number of Training({num_training} Times)")
+    ax[2].set_ylabel("Epsilon")
     fig.tight_layout()
+    plt.subplots_adjust(wspace=0,hspace=0.25)
     plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 200)
     plt.show()
 
@@ -627,9 +629,9 @@ if __name__ == u'__main__':
 
     env = DynamicObstacleNavigationMir100Sim()
 
-    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
+    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.99,gamma = 0.95,lr = 0.8)
 
-    run_num_episodes(env,agent,num_episodes = 5)
+    run_num_episodes(env,agent,num_episodes = 10)
 
     # Plot the Q table
     fig, ax = plt.subplots(1, 1, figsize=(12,3))

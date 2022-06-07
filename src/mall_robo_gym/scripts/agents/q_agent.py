@@ -27,6 +27,7 @@ class QAgent(Agent):
     def __init__(self,states_size,actions_size,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8):
         self.states_size = states_size
         self.actions_size = actions_size
+        self.exploration_rate = []
         self.gamma = gamma                  # Discounting rate
         self.lr = lr                        # Learning rate
         
@@ -34,6 +35,7 @@ class QAgent(Agent):
         self.epsilon = epsilon              # Exploration rate
         self.epsilon_min = epsilon_min      # Minimum exploration rate
         self.epsilon_decay = epsilon_decay  # Exponential decay rate 
+        self.exploration_rate.append(self.epsilon)
 
         # Initialize Q-table to 0
         self.Q = self.build_model(states_size,actions_size)
@@ -54,6 +56,7 @@ class QAgent(Agent):
             # for steps in max_steps:
             #       epsilon = epsilon_decay^steps
             self.epsilon *= self.epsilon_decay
+        self.exploration_rate.append[self.epsilon]
 
 
     def act(self,s):
