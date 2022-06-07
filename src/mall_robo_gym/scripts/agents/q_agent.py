@@ -56,7 +56,7 @@ class QAgent(Agent):
             # for steps in max_steps:
             #       epsilon = epsilon_decay^steps
             self.epsilon *= self.epsilon_decay
-        self.exploration_rate.append[self.epsilon]
+        self.exploration_rate.append(self.epsilon)
 
 
     def act(self,s):
