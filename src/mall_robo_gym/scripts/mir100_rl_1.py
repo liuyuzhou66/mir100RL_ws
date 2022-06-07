@@ -26,10 +26,9 @@ import geometry_msgs.msg
 import sys
 sys.path.append("../")
 
-
 WAYPOINT_POSITIONS = [0,-32,0,4,-34,0,7,-37,0,8.5,-26.5,0,12,-34,0,-3.5,-34,0]
 
-WAYPOINT_YAWS = [90, 90, 90, 90, 90, 90]
+WAYPOINT_YAWS = [90, -90, 90, -90, 90, -90]
 
 SPEED = 1
 
@@ -49,7 +48,7 @@ class Waypoint:
         )[0][0] / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
-START_POINT = Waypoint(Point(0, -38, 0), 0)
+START_POINT = Waypoint(Point(1, -38, 0), 0)
 
 """
 Q matrix:
@@ -199,7 +198,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.StartPoint_x = START_POINT.position.x
         self.StartPoint_y = START_POINT.position.y
         self.StartPoint_z = START_POINT.position.z
-        self.StartPoint_ori = quaternion_from_euler(0, 0, START_POINT.yaw * math.pi / 180)
+        self.StartPoint_ori = quaternion_from_euler(0, 0, np.deg2rad(START_POINT.yaw))
 
         # Number of all_points, including starting point
         self.num_all_points = len(self.all_points)
@@ -218,7 +217,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 900         # Maximum time for each episode: 0.25 h = 15 min = 900 s
+        self.max_time = 1800         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -308,14 +307,14 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Get reward for new action
         reward = self._get_reward() - reward_before_action + basic_reward
-        rospy.loginfo(f"[{self._name}] gets reward for new action [{action}: {reward}]!")
+        rospy.loginfo(f"[{self._name}] gets reward for new action [{action}]: {reward}!")
 
         # End episode when all waypoints have been visited
         if np.sum(self.waypoints_status) == self.num_waypoints:
             done = True
             # If robot completed the route give additional reward
             ## Additional reward inversely proportional to time since start of episode.
-            reward += (self.max_time/(self.overall_time + 0.0001)) * self.addi_reward_multiply_value
+            reward += (self.max_time/(self.overall_time + 0.01)) * self.addi_reward_multiply_value
 
         """
         # Episode end if maximum time is reached
@@ -357,10 +356,21 @@ class DynamicObstacleNavigationMir100Sim:
         wp_ori = wp.yaw
         self.move_base_action_client(wp_x, wp_y, wp_ori)
 
+        # Update the elapsed time for reaching each waypoint
+        for i in range(self.num_waypoints):
+            if self.waypoints_status[i] == 0:
+                time = rospy.get_rostime()
+                time_s = time.to_sec()
+                wp_time = time_s - self.time_start
+                self.waypoints_time[i] = round(wp_time, 2)
+                rospy.loginfo(f"[{self._name}] waypoints_time[{i}] = {self.waypoints_time[i]}, done!")
+        rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
+        rospy.loginfo(f"[{self._name}] waypoints_time taken: {self.waypoints_time}")
+
         # If the robot reaches the waypoint, then get current robot position
         self._get_robot_position()
         
-        # Update the waypoint_status
+        # Update the waypoints_status
         """
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
@@ -374,6 +384,14 @@ class DynamicObstacleNavigationMir100Sim:
 
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
+
+        # Update the oveall time since agent left START_POINT
+        time = rospy.get_rostime()
+        tim_s = time.to_sec()
+        o_time = tim_s - self.time_start
+        self.overall_time = round(o_time, 2)
+        rospy.loginfo(f"[{self._name}] updates overall_time, done!")
+        rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
         
         # Update the color of waypoints that have been visited by the robot to green
         for j in range(len(WAYPOINT_YAWS)):
@@ -381,23 +399,6 @@ class DynamicObstacleNavigationMir100Sim:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
-        
-
-        # Update the elapsed time for reaching each waypoint
-        for i in range(self.num_waypoints):
-            if self.waypoints_status[i] == 0:
-                time = rospy.get_rostime()
-                time_s = time.to_sec()
-                self.waypoints_time[i] = time_s - self.time_start
-                rospy.loginfo(f"[{self._name}] waypoints_time[{i}] = {self.waypoints_time[i]}, done!")
-        rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
-
-        # Update the oveall time since agent left START_POINT
-        time = rospy.get_rostime()
-        tim_s = time.to_sec()
-        self.overall_time = tim_s - self.time_start
-        rospy.loginfo(f"[{self._name}] updates overall_time, done!")
-        rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
 
 
     def move_to_wp(self, wp_x, wp_y, wp_ori):
@@ -416,10 +417,10 @@ class DynamicObstacleNavigationMir100Sim:
         goal.target_pose.pose.position.x=goalx
         goal.target_pose.pose.position.y=goaly
         goal.target_pose.pose.position.z=0.0
-        q_angle = quaternion_from_euler(0.0,0.0,goaltheta)
+        q_angle = quaternion_from_euler(0.0,0.0,np.deg2rad(goaltheta))
         q = geometry_msgs.msg.Quaternion(*q_angle)
         goal.target_pose.pose.orientation=q
-        rospy.loginfo(f"[{self._name}] sending next wayppoint position {goalx}:{goaly}")
+        rospy.loginfo(f"[{self._name}] sending next wayppoint position ({goalx}, {goaly})")
         client.send_goal(goal)
         client.wait_for_result()
         res = client.get_result()
@@ -428,7 +429,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 
     def teleport(self, x, y):
-        rospy.loginfo(f"Teleport [{self._name}] robot to the starting point")
+        rospy.loginfo(f"Teleport [{self._name}] robot to the starting point!")
 
         state_msg = ModelState()
         state_msg.model_name = "mir"
@@ -439,9 +440,8 @@ class DynamicObstacleNavigationMir100Sim:
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
         resp = set_state(state_msg )
-        rospy.loginfo(f'[{self._name}] is teleported to the starting point({x},{y})')
+        rospy.loginfo(f'[{self._name}] is teleported to the starting point({x}, {y})!')
 
-        
         pose_with_stamp_msg = PoseWithCovarianceStamped()
         pose_with_stamp_msg.pose.pose.position.x = x
         pose_with_stamp_msg.pose.pose.position.y = y
@@ -451,7 +451,6 @@ class DynamicObstacleNavigationMir100Sim:
         resp = pose_with_stamp.publish(pose_with_stamp_msg )
         
 
-
     def _get_robot_position(self):
         rospy.wait_for_service('/gazebo/get_model_state')
         get_state = rospy.ServiceProxy(
@@ -459,7 +458,7 @@ class DynamicObstacleNavigationMir100Sim:
         resp = get_state(model_name = "mir")
         self.mir100_pos_x = resp.pose.position.x
         self.mir100_pos_y = resp.pose.position.y
-        rospy.loginfo(f"[{self._name}] get robot current position: {self.mir100_pos_x} {self.mir100_pos_y}!")
+        rospy.loginfo(f"[{self._name}] get robot current position: ({self.mir100_pos_x}, {self.mir100_pos_y})!")
         return self.mir100_pos_x, self.mir100_pos_y
 
 
@@ -489,8 +488,10 @@ class DynamicObstacleNavigationMir100Sim:
         If all the waypoints are delivered and the agent is back to the start point, 
         it gets an additional reward inversely proportional to time since start of episode.
         """
-        common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.0001)) - self.overall_time
-        
+        common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.01)) - self.overall_time
+        rospy.loginfo(f"[{self._name}] calculates common reward: {common_reward}")
+        # common_reward = np.sum(np.asarray(waypoints_status) * max_time / (np.asarray(waypoints_time) + 0.01)) - overall_time
+
         return common_reward
 
 

@@ -14,13 +14,13 @@ https://github.com/theolvs
 """
 
 import numpy as np
-
-
+import rospy 
 
 # from mall_robo_gym import utils
 from .memory import Memory
 from .base_agent import Agent
 
+np.set_printoptions(linewidth=120)
 
 
 class QAgent(Agent):
@@ -47,6 +47,7 @@ class QAgent(Agent):
     def train(self,s,a,r,s_next):
         # Bellman equation to update the Q value
         self.Q[s,a] = self.Q[s,a] + self.lr * (r + self.gamma*np.max(self.Q[s_next,a]) - self.Q[s,a])
+        rospy.loginfo(f"[mir100_rl_1] updates Q table: \n{self.Q}")
 
         # Reduce epsilon (because we need less and less exploration)
         if self.epsilon > self.epsilon_min:
