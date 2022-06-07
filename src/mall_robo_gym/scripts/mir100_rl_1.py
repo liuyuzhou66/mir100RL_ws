@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import math
+import time
 import rospy 
 import numpy as np
 import pandas as pd
@@ -17,7 +18,7 @@ from gazebo_msgs.msg import ModelState
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
 from tf.transformations import quaternion_from_euler
 from agents.q_agent import QAgent
-
+from std_srvs.srv import Empty, EmptyRequest
 # Brings in the SimpleActionClient
 import actionlib
 import move_base_msgs.msg
@@ -25,6 +26,7 @@ import geometry_msgs.msg
 
 import sys
 sys.path.append("../")
+
 
 WAYPOINT_POSITIONS = [0,-32,0,4,-34,0,7,-37,0,8.5,-26.5,0,12,-34,0,-3.5,-34,0]
 
@@ -228,7 +230,7 @@ class DynamicObstacleNavigationMir100Sim:
             self._generate_q_values()
 
         # Restart the environment on a new episode. Return the start_point_index
-        self.reset()
+        # self.reset()
 
 
     def reset(self):
@@ -594,7 +596,7 @@ def run_num_episodes(env,agent,num_episodes=500):
 
         # Run the episode
         rospy.loginfo(f"[mir100_rl_1] episode <{i}>!")
-        env,agent,episode_reward = run_episode(env,agent,verbose = 0)
+        env,agent,episode_reward = run_episode(env,agent)
 
         overall_times.append(env.overall_time)
         rewards.append(episode_reward)
@@ -627,11 +629,20 @@ def run_num_episodes(env,agent,num_episodes=500):
 if __name__ == u'__main__':
     rospy.init_node('mir100_rl_1', anonymous=True)
 
+    rospy.loginfo('sleep for 1 second')
+    time.sleep(1)
+    rospy.loginfo('wait for service to unpause')
+    rospy.wait_for_service('/gazebo/unpause_physics')
+    rospy.loginfo('calling service to unpause')
+    pause_physics_client = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
+    pause_physics_client(EmptyRequest())
+    rospy.loginfo('should be unpaused')
+
     env = DynamicObstacleNavigationMir100Sim()
 
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.99,gamma = 0.95,lr = 0.8)
 
-    run_num_episodes(env,agent,num_episodes = 10)
+    run_num_episodes(env,agent,num_episodes = 5)
 
     # Plot the Q table
     fig, ax = plt.subplots(1, 1, figsize=(12,3))
