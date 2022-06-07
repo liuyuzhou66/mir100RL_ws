@@ -28,7 +28,7 @@ sys.path.append("../")
 
 WAYPOINT_POSITIONS = [0,-32,0,4,-34,0,7,-37,0,8.5,-26.5,0,12,-34,0,-3.5,-34,0]
 
-WAYPOINT_YAWS = [90, -90, 90, -90, 90, -90]
+WAYPOINT_YAWS = [-90, 90, -90, 90, -90, 90]
 
 SPEED = 1
 
@@ -48,7 +48,7 @@ class Waypoint:
         )[0][0] / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
-START_POINT = Waypoint(Point(1, -38, 0), 0)
+START_POINT = Waypoint(Point(0, -38, 0), 0)
 
 """
 Q matrix:
@@ -228,7 +228,7 @@ class DynamicObstacleNavigationMir100Sim:
             self._generate_q_values()
 
         # Restart the environment on a new episode. Return the start_point_index
-        # self.reset()
+        self.reset()
 
 
     def reset(self):
@@ -343,11 +343,16 @@ class DynamicObstacleNavigationMir100Sim:
         """
 
         # Sets the color of the point the robot is currently heading to to red
+        """
         for j in range(len(WAYPOINT_YAWS)):
             if j == action:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_red(self.waypoints[j].position.x, self.waypoints[j].position.y)
+        """
+        wp_name = f"Waypoint_{action}"
+        sphere = self.waypoint_labels[wp_name]
+        sphere.spawn_red(self.waypoints[action].position.x, self.waypoints[action].position.y)
 
         # Move robot to next_waypoint
         wp = self.waypoints[action]
