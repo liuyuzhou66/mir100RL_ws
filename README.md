@@ -6,6 +6,7 @@ roslaunch mall_robo_gym mir100_rl_1.launch
 ```
 
 ### Legend for waypoints in gazebo
+![image](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Legend.png)
 - Blue sphere: those waypoints that have not been visited yet
 - Green sphere: those waypoints that have been visited
 - Red sphere: the waypoint that the robot is currently heading to
