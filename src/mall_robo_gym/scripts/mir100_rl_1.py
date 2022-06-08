@@ -133,20 +133,24 @@ class Waypoint_Label:
     def __init__(self, model_name):
         self.model_name = model_name
         self.spawned = False
-        self.rate = rospy.Rate(10)
+        self.current_color = ''
+        #self.rate = rospy.Rate(3)
 
     def delete(self):
-        rospy.wait_for_service('gazebo/delete_model', 8.0)
-        self.rate.sleep()
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/delete_model', DeleteModel)
+        rospy.wait_for_service('gazebo/delete_model', 5.0)
+        rospy.sleep(.1)
         res = spawn_model_prox(self.model_name)
+        rospy.loginfo(f'Deleted {self.model_name}, {res}')
         self.spawned = False
 
     def _spawn(self, x, y, color):
+        if self.current_color == color:
+            return
         if self.spawned:
             self.delete()
-        rospy.wait_for_service('gazebo/spawn_sdf_model', 8.0)
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/spawn_sdf_model', SpawnModel)
         spawn_pose = Pose()
@@ -155,9 +159,12 @@ class Waypoint_Label:
         spawn_pose.position.z = 2.0 
         model_xml = WP_Label.replace('NAME', self.model_name)
         model_xml = model_xml.replace('COLOR', color)
-        self.rate.sleep()
+        rospy.sleep(.1)
+        
         res = spawn_model_prox(
             self.model_name, model_xml, '', spawn_pose, 'world')
+        rospy.loginfo(f'Spawned {self.model_name} ({color}): {res}')
+        self.current_color = color
         self.spawned = True
 
     def spawn_blue(self, x, y):
@@ -184,15 +191,12 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Create a dictionary to store the spawn status of waypoint labels
         self.waypoint_labels = {}
-
-        # Spawn blue sphere to waypoint by default
         for j in range(len(WAYPOINT_YAWS)):
             wp_name = f"Waypoint_{j}"
             sphere = Waypoint_Label(wp_name)
             self.waypoint_labels[wp_name] = sphere
-            sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
-        # Set the robot initial position to starting point(1.5, -38.5, 0)
+        # Set the robot initial position to starting point(0, -38.5, 0)
         self.all_points = [START_POINT]
         self.all_points += self.waypoints
         # self.all_points.append(START_POINT)
@@ -257,6 +261,13 @@ class DynamicObstacleNavigationMir100Sim:
         # Reset the overall time to 0
         self.overall_time = 0
 
+        # Spawn blue sphere to waypoint by default
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 0:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
+
         # Return the index of the first point robot starts (state)
         return start_point_index
 
@@ -287,6 +298,13 @@ class DynamicObstacleNavigationMir100Sim:
         # Update the waypoints_status and the time elapsed
         self._play_action(action)
         
+        # Update the color of waypoints that have been visited by the robot to green
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 1:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
+
         # Update visited_points
         visited_point_index = new_state
         # + 1 beacuse the index of the starting point is "0" 
@@ -314,17 +332,16 @@ class DynamicObstacleNavigationMir100Sim:
         # End episode when all waypoints have been visited
         if np.sum(self.waypoints_status) == self.num_waypoints:
             done = True
+            rospy.loginfo("All waypoints have been reached!")
             # If robot completed the route give additional reward
             ## Additional reward inversely proportional to time since start of episode.
             reward += (self.max_time/(self.overall_time + 0.01)) * self.addi_reward_multiply_value
 
-        """
         # Episode end if maximum time is reached
         if self.overall_time >= self.max_time:
             done = True
             info['final_status'] = 'max_time_exceeded'
             rospy.loginfo(f"[{self._name}] max_time_exceeded!")
-        """
         
         return new_state, reward, done, info
 
@@ -363,6 +380,9 @@ class DynamicObstacleNavigationMir100Sim:
         wp_ori = wp.yaw
         self.move_base_action_client(wp_x, wp_y, wp_ori)
 
+        # If the robot reaches the waypoint, then get current robot position
+        self._get_robot_position()
+
         # Update the elapsed time for reaching each waypoint
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
@@ -374,9 +394,6 @@ class DynamicObstacleNavigationMir100Sim:
         rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
         rospy.loginfo(f"[{self._name}] waypoints_time taken: {self.waypoints_time}")
 
-        # If the robot reaches the waypoint, then get current robot position
-        self._get_robot_position()
-        
         # Update the waypoints_status
         """
         for i in range(self.num_waypoints):
@@ -388,7 +405,6 @@ class DynamicObstacleNavigationMir100Sim:
         """
         if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.5 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.5: 
             self.waypoints_status[action] = 1
-
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
 
@@ -400,13 +416,6 @@ class DynamicObstacleNavigationMir100Sim:
         rospy.loginfo(f"[{self._name}] updates overall_time, done!")
         rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
         
-        # Update the color of waypoints that have been visited by the robot to green
-        for j in range(len(WAYPOINT_YAWS)):
-            if self.waypoints_status[j] == 1:
-                wp_name = f"Waypoint_{j}"
-                sphere = self.waypoint_labels[wp_name]
-                sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
-
 
     def move_to_wp(self, wp_x, wp_y, wp_ori):
         pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
@@ -427,7 +436,7 @@ class DynamicObstacleNavigationMir100Sim:
         q_angle = quaternion_from_euler(0.0,0.0,np.deg2rad(goaltheta))
         q = geometry_msgs.msg.Quaternion(*q_angle)
         goal.target_pose.pose.orientation=q
-        rospy.loginfo(f"[{self._name}] sending next wayppoint position ({goalx}, {goaly})")
+        rospy.loginfo(f"[{self._name}] is sending next wayppoint position ({goalx}, {goaly})")
         client.send_goal(goal)
         client.wait_for_result()
         res = client.get_result()
@@ -540,7 +549,7 @@ def run_episode(env,agent):
         # Update the caches
         episode_reward += r # The total reward of each episode
         s = s_next
-        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
+        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished! Time to start a new episode")
         
         # If the episode is terminated
         i += 1

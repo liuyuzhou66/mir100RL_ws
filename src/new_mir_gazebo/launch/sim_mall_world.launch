@@ -25,9 +25,9 @@
     <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" />
 
     <!-- Launch amcl localization node -->
-    <include file="$(find mir_navigation)/launch/amcl.launch">
-        <arg name="initial_pose_x"     value="$(arg initial_pose_x)"/>
-        <arg name="initial_pose_y"     value="$(arg initial_pose_y)"/>
+    <include file="$(find new_mir_gazebo)/launch/fake_localization.launch">
+        <!-- <arg name="delta_x"     value="$(arg initial_pose_x)"/> -->
+        <!-- <arg name="delta_y"     value="$(arg initial_pose_y)"/> -->
     </include>
 
     <!-- Launch robot_pose publisher -->
