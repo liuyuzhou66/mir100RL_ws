@@ -1,7 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <launch>
-    <arg name="initial_pose_x"  default="0"/>
-    <arg name="initial_pose_y"  default="-38"/>
+    <!-- initial x-coordinate value -->
+    <arg name="initial_pose_x"  default="-19.0"/>
+    <!-- initial y-coordinate value -->
+    <arg name="initial_pose_y"  default="0"/>
+    <!-- initial yaw coordinate value -->
+    <arg name="initial_pose_a"  default="0"/>
+    <!-- <arg name="initial_pose_a" default="${60/180*pi}"/> -->
 
     <arg name="gui"         default="true"/>
     <arg name="gazebo_gui"  default="true"/>
@@ -16,13 +21,14 @@
         <arg name="gui" value="$(arg gui)" />
         <arg name="robot_x" value="$(arg initial_pose_x)" />
         <arg name="robot_y" value="$(arg initial_pose_y)" />
+        <arg name="robot_yaw" value="$(arg initial_pose_a)" />
     </include>
     
     <!-- Spawn the mall -->
     <include file="$(find new_mir_gazebo)/launch/includes/spawn_mall.launch.xml" />
     
     <!-- Spawn the moving obstcales -->
-    <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" />
+    <!-- <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" /> -->
 
     <!-- Launch amcl localization node -->
     <include file="$(find new_mir_gazebo)/launch/fake_localization.launch">

@@ -22,7 +22,7 @@
             <uri>file://media/materials/scripts/gazebo.material</uri>
             <name>Gazebo/Grey</name>
           </script>
-          <ambient>0.6 0.6 0.6 1</ambient>
+          <ambient>0.4 0.4 0.4 1</ambient>
         </material>
       </visual>
     </link>

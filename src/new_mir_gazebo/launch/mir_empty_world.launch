@@ -5,8 +5,8 @@
   <arg name="world_name" default="$(find new_mir_gazebo)/worlds/empty.world" />
   <!--arg name="world_name" default="worlds/empty.world"/--> <!-- Note: the world_name is with respect to GAZEBO_RESOURCE_PATH environmental variable, but can also be an absolute path -->
 
-  <arg name="robot_x"   default="2.0" />
-  <arg name="robot_y"   default="2.0" />
+  <arg name="robot_x"   default="0.0" />
+  <arg name="robot_y"   default="0.0" />
   <arg name="robot_yaw" default="0.0" />
   <arg name="teleop" default="true" />
 
@@ -32,7 +32,7 @@
          2. adding the namespace prefix to the header.frame_id field of the laser scanner messages. -->
     <group ns="$(arg namespace)">
       <!-- spawn robot and bring up controllers etc. -->
-      <include file="$(find mir_gazebo)/launch/mir_gazebo_common.launch">
+      <include file="$(find new_mir_gazebo)/launch/mir_gazebo_common.launch">
         <arg name="robot_x"   value="$(arg robot_x)" />
         <arg name="robot_y"   value="$(arg robot_y)" />
         <arg name="robot_yaw" value="$(arg robot_yaw)" />

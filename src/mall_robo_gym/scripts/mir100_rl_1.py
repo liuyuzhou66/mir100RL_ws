@@ -28,9 +28,9 @@ import sys
 sys.path.append("../")
 
 
-WAYPOINT_POSITIONS = [0,-32,0,4,-34,0,7,-37,0,8.5,-26.5,0,12,-34,0,-3.5,-34,0]
+WAYPOINT_POSITIONS = [-13.5,2.5,0, -10.25,4.0,0, -7.75,6.0,0, -7.75,-6.0,0, -15.0,-5.0,0, -2.3,-4.0,0]
 
-WAYPOINT_YAWS = [-90, 90, -90, 90, -90, 90]
+WAYPOINT_YAWS = [90, -90, -90, -90, 180, -90]
 
 SPEED = 1
 
@@ -50,7 +50,8 @@ class Waypoint:
         )[0][0] / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
-START_POINT = Waypoint(Point(0, -38, 0), 0)
+START_POINT = Waypoint(Point(-19.0, 0, 0), 0)
+# START_POINT = Waypoint(Point(34.0, -8.0, 0), 0)
 
 """
 Q matrix:

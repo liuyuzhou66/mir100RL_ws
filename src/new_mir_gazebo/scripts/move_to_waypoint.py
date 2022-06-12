@@ -125,7 +125,7 @@ class Obstacle:
         resp.pose.position.y
         dist_pos = math.sqrt((position.x - resp.pose.position.x)**2 + (position.y - resp.pose.position.y)**2)
         # rospy.loginfo(dist_pos)
-        return dist_pos < 0.8
+        return dist_pos < 1.6
 
 
 
@@ -144,19 +144,19 @@ if __name__ == u'__main__':
 
     obstacle1 = Obstacle('first_obstacle')
     obstacle1.waypoints = [
-        Waypoint(9.0, -2.0, 1.0),
-        Waypoint(11.0, -2.0, 1.0),
-        Waypoint(9.0, -2.0, 1.0)
+        Waypoint(-13.0, 3.0, 12),
+        Waypoint(-13.0, -3.0, 12),
+        Waypoint(-13.0, 3.0, 12),
     ]
-    obstacle1.spawn(9, -2)
+    obstacle1.spawn(-13.0, 3.0)
 
     obstacle2 = Obstacle('second_obstacle')
     obstacle2.waypoints = [
-        Waypoint(33.0, -19.0, 3.0),
-        Waypoint(38.0, -19.0, 3.0),
-        Waypoint(33.0, -19.0, 3.0)
+        Waypoint(-11.0, 0, 20),
+        Waypoint(-1.0, 0, 20),
+        Waypoint(-11.0, 0, 20)
     ]
-    obstacle2.spawn(33, -19)
+    obstacle2.spawn(-11.0, 0)
 
     mtwp = MoveToWaypoint()
     mtwp.obstacles = [obstacle1, obstacle2]
