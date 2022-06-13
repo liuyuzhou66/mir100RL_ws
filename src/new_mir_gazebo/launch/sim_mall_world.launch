@@ -32,8 +32,9 @@
 
     <!-- Launch amcl localization node -->
     <include file="$(find new_mir_gazebo)/launch/fake_localization.launch">
-        <!-- <arg name="delta_x"     value="$(arg initial_pose_x)"/> -->
-        <!-- <arg name="delta_y"     value="$(arg initial_pose_y)"/> -->
+        <!-- <arg name="delta_x"     value="$(arg initial_pose_x)"/>
+        <arg name="delta_y"     value="$(arg initial_pose_y)"/>
+        <arg name="delta_yaw"   value="$(arg initial_pose_a)"/> -->
     </include>
 
     <!-- Launch robot_pose publisher -->

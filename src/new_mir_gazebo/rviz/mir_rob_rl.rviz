@@ -11,6 +11,10 @@ Panels:
         - /Map1
         - /LaserScan1
         - /Map2
+        - /Path2
+        - /Path3
+        - /Path4
+        - /Path5
       Splitter Ratio: 0.5
     Tree Height: 589
   - Class: rviz/Selection
@@ -386,7 +390,7 @@ Visualization Manager:
     - Alpha: 1
       Buffer Length: 1
       Class: rviz/Path
-      Color: 25; 255; 0
+      Color: 255; 0; 0
       Enabled: true
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
@@ -476,10 +480,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Scale: 79.19247436523438
+      Scale: 53.51449203491211
       Target Frame: <Fixed Frame>
-      X: -15.067426681518555
-      Y: 0.2807645797729492
+      X: -10.358540534973145
+      Y: -0.04059861972928047
     Saved: ~
 Window Geometry:
   Displays:
