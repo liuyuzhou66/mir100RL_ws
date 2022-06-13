@@ -30,7 +30,7 @@
     args="joint_state_controller mobile_base_controller"/>
 
   <!-- EKF -->
-  <include file="$(find new_mir_gazebo)/launch/includes/ekf.launch.xml">
+  <include file="$(find mir_gazebo)/launch/includes/ekf.launch.xml">
       <arg name="tf_prefix" value="$(arg prefix)" />
   </include>
 

@@ -4,7 +4,7 @@ from cmath import sqrt
 from turtle import distance
 import rospy 
 import math
-from geometry_msgs.msg import Pose
+from geometry_msgs.msg import Pose, Point
 from gazebo_msgs.msg import ModelState 
 from gazebo_msgs.srv import SetModelState, SpawnModel, GetModelState
 
@@ -61,14 +61,18 @@ OBS = '''<?xml version='1.0'?>
 class Obstacle:
     def __init__(self, model_name):
         self.model_name = model_name
+        self.pause_start = None
+        self.pause_percentage = None
+        self.position = Point()
 
     def spawn(self, x, y):
         rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/spawn_sdf_model', SpawnModel)
-        spawn_pose = Pose()
-        spawn_pose.position.x = x
-        spawn_pose.position.y = y
+        self.position.x = x
+        self.position.y = y
+        spawn_pose = Pose(position=self.position)
+       
         model_xml = OBS.replace('NAME', self.model_name)
 
         res = spawn_model_prox(
@@ -80,14 +84,32 @@ class Obstacle:
         self.last_wp = path[self.waypoint_idx]
         self.next_wp = path[self.waypoint_idx+1]
         self.start = 0
+        self.add_percentage = 0
+        self.percentage = 0
         self.end = self.next_wp.time
 
     def move_step(self):
         path = self.waypoints
         time = rospy.get_rostime()
         now = time.to_sec()
+        if self.stop_case(self.position):
+            if not self.pause_start:
+                self.pause_percentage = self.percentage
+                self.pause_start = now
+            return
+        if self.pause_start:
+            self.start = now
+            self.end = now + self.next_wp.time
+            self.add_percentage = self.pause_percentage
+            self.pause_start = None
+
+        percentage = (now - self.start) / (self.end - self.start)
+        rospy.loginfo(f'calculated percentage: {percentage}')
+        percentage += self.add_percentage
+        rospy.loginfo(f'wait time: {self.add_percentage}')
         # check if we need to get the next waypoint
-        if now > self.end:
+        if percentage >= 1.0:
+            rospy.loginfo(f'switch to next waypoint')
             self.waypoint_idx += 1
             if self.waypoint_idx + 1 >= len(path):
                 # we are at the last waypoint, loop!
@@ -96,20 +118,21 @@ class Obstacle:
             self.next_wp = path[self.waypoint_idx+1]
             self.start = now
             self.end = now + self.next_wp.time
+            self.pause_percentage = 0
+            self.add_percentage = 0
+            self.pause_start = None
 
         # calculate how far we should have walked during this time (in percentage)
-        percentage = (now - self.start) / (self.end - self.start)
         distance_x = (self.next_wp.x - self.last_wp.x) * percentage
         distance_y = (self.next_wp.y - self.last_wp.y) * percentage
-
+        self.percentage = percentage
         # set model pose, add distance x and y to last position, copied from https://answers.gazebosim.org/question/22125/how-to-set-a-models-position-using-gazeboset_model_state-service-in-python/
         state_msg = ModelState()
         state_msg.model_name = self.model_name
-        state_msg.pose.position.x = self.last_wp.x + distance_x
-        state_msg.pose.position.y = self.last_wp.y + distance_y
-        state_msg.pose.position.z = 0.9
-        if self.stop_case(state_msg.pose.position):
-          return
+        self.position.x = self.last_wp.x + distance_x
+        self.position.y = self.last_wp.y + distance_y
+        self.position.z = 0.9
+        state_msg.pose.position = self.position
         rospy.wait_for_service('/gazebo/set_model_state')
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
@@ -121,11 +144,9 @@ class Obstacle:
         get_state = rospy.ServiceProxy(
             '/gazebo/get_model_state', GetModelState)
         resp = get_state(model_name = "mir")
-        resp.pose.position.x
-        resp.pose.position.y
         dist_pos = math.sqrt((position.x - resp.pose.position.x)**2 + (position.y - resp.pose.position.y)**2)
         # rospy.loginfo(dist_pos)
-        return dist_pos < 1.6
+        return dist_pos < 3
 
 
 
@@ -144,21 +165,21 @@ if __name__ == u'__main__':
 
     obstacle1 = Obstacle('first_obstacle')
     obstacle1.waypoints = [
-        Waypoint(-13.0, 3.0, 12),
+        Waypoint(-13.0, 3.0, 0),
         Waypoint(-13.0, -3.0, 12),
         Waypoint(-13.0, 3.0, 12),
     ]
     obstacle1.spawn(-13.0, 3.0)
 
-    obstacle2 = Obstacle('second_obstacle')
-    obstacle2.waypoints = [
-        Waypoint(-11.0, 0, 20),
-        Waypoint(-1.0, 0, 20),
-        Waypoint(-11.0, 0, 20)
-    ]
-    obstacle2.spawn(-11.0, 0)
+    # obstacle2 = Obstacle('second_obstacle')
+    # obstacle2.waypoints = [
+    #     Waypoint(-11.0, 0, 0),
+    #     Waypoint(-1.0, 0, 20),
+    #     Waypoint(-11.0, 0, 20)
+    # ]
+    # obstacle2.spawn(-11.0, 0)
 
     mtwp = MoveToWaypoint()
-    mtwp.obstacles = [obstacle1, obstacle2]
+    mtwp.obstacles = [obstacle1] #, obstacle2]
     mtwp.move_obstacles()
 

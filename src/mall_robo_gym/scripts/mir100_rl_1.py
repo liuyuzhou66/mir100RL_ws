@@ -4,6 +4,7 @@
 import math
 import time
 import rospy 
+import threading
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -30,9 +31,15 @@ sys.path.append("../")
 
 WAYPOINT_POSITIONS = [-13.5,2.5,0, -10.25,4.0,0, -7.75,6.0,0, -7.75,-6.0,0, -15.0,-5.0,0, -2.3,-4.0,0]
 
-WAYPOINT_YAWS = [90, 90, -90, -90, 180, -90]
+WAYPOINT_YAWS = [90, 90, 90, -90, 180, -90]
 
 SPEED = 1
+
+
+def dist(x1, y1, x2, y2):
+    return cdist(
+            [[x1, y1]],
+            [[x2, y2]])[0][0]
 
 
 @dataclass
@@ -44,10 +51,9 @@ class Waypoint:
     def duration(self, wp):
         # time it takes to move from one waypoint to another
         # should be replaced with a table later on
-        return cdist(
-            [[self.position.x, self.position.y]],
-            [[wp.position.x, wp.position.y]]
-        )[0][0] / SPEED
+        return dist(
+            self.position.x, self.position.y, 
+            wp.position.x, wp.position.y) / SPEED
 
 # Robot starts at 0-position (the index of starting point is 0)
 START_POINT = Waypoint(Point(-19.0, 0, 0), 0)
@@ -404,7 +410,10 @@ class DynamicObstacleNavigationMir100Sim:
                     # Will there be a situation where the coordinates cannot be exactly the same?
                     self.waypoints_status[i] = 1
         """
-        if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.5 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.5: 
+        _dist = dist(
+            self.mir100_pos_x, self.mir100_pos_y, 
+            self.waypoints[action].position.x, self.waypoints[action].position.y)
+        if _dist < 0.2:
             self.waypoints_status[action] = 1
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
@@ -423,25 +432,55 @@ class DynamicObstacleNavigationMir100Sim:
         pub.publish(PoseStamped(header=Header(time=rospy.Time.now(), frame_id='map'), pose=Pose(position=Point(x=wp_x, y=wp_y, z=0), orientation=Quaternion(*wp_ori))))
 
 
-    def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
-        rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
-
-        client=actionlib.SimpleActionClient('move_base',move_base_msgs.msg.MoveBaseAction)
+    def move_base_thread(self, goal_pose):
+        client=actionlib.SimpleActionClient(
+            'move_base',
+            move_base_msgs.msg.MoveBaseAction)
+        self.action_client = client
         client.wait_for_server(rospy.Duration(20))
         goal=move_base_msgs.msg.MoveBaseGoal()
         goal.target_pose.header.frame_id='map'
         goal.target_pose.header.stamp=rospy.Time.now()
-        goal.target_pose.pose.position.x=goalx
-        goal.target_pose.pose.position.y=goaly
-        goal.target_pose.pose.position.z=0.0
-        q_angle = quaternion_from_euler(0.0,0.0,np.deg2rad(goaltheta))
-        q = geometry_msgs.msg.Quaternion(*q_angle)
-        goal.target_pose.pose.orientation=q
-        rospy.loginfo(f"[{self._name}] is sending next wayppoint position ({goalx}, {goaly})")
+        goal.target_pose.pose = goal_pose
+        rospy.loginfo(
+            f"[{self._name}] is sending next wayppoint position ("
+            f"{goal_pose.position.x}, {goal_pose.position.y})")
         client.send_goal(goal)
-        client.wait_for_result()
+        client.wait_for_result(rospy.Duration(300))
         res = client.get_result()
         rospy.loginfo(f"RESULT: {res}")
+
+    def move_base_watcher_thread(self, goal_pose):
+        while True:
+            rospy.sleep(1)
+            x, y = self._get_robot_position()
+            _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
+            if _dist < 0.2:
+                rospy.loginfo(f'Close enough: {_dist}')
+                if hasattr(self, 'action_client'):
+                    self.action_client.cancel_all_goals()
+                return
+
+    def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
+        rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
+        goal_pose = Pose()
+        goal_pose.position.x = goalx
+        goal_pose.position.y = goaly
+        q_angle = quaternion_from_euler(0.0, 0.0, np.deg2rad(goaltheta))
+        goal_pose.orientation = geometry_msgs.msg.Quaternion(*q_angle)
+
+        thread1 = threading.Thread(
+            target=self.move_base_thread,
+            args=(goal_pose,))
+        thread2 = threading.Thread(
+            target=self.move_base_watcher_thread,
+            args=(goal_pose,))
+
+        thread1.start()
+        thread2.start()
+
+        thread1.join()
+        thread2.join()
         return
 
 
@@ -475,7 +514,7 @@ class DynamicObstacleNavigationMir100Sim:
         resp = get_state(model_name = "mir")
         self.mir100_pos_x = resp.pose.position.x
         self.mir100_pos_y = resp.pose.position.y
-        rospy.loginfo(f"[{self._name}] get robot current position: ({self.mir100_pos_x}, {self.mir100_pos_y})!")
+        # rospy.loginfo(f"[{self._name}] get robot current position: ({self.mir100_pos_x}, {self.mir100_pos_y})!")
         return self.mir100_pos_x, self.mir100_pos_y
 
 
