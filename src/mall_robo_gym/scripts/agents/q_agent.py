@@ -48,7 +48,8 @@ class QAgent(Agent):
 
     def train(self,s,a,r,s_next):
         # Bellman equation to update the Q value
-        self.Q[s,a] = self.Q[s,a] + self.lr * (r + self.gamma*np.max(self.Q[s_next,a]) - self.Q[s,a])
+        Q_value = self.Q[s,a] + self.lr * (r + self.gamma*np.max(self.Q[s_next,a]) - self.Q[s,a])
+        self.Q[s,a] = round(Q_value, 2)
         rospy.loginfo(f"[mir100_rl_1] updates Q table: \n{self.Q}")
 
         # Reduce epsilon (because we need less and less exploration)
