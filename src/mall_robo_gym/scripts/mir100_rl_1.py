@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import os
 import math
 import time
 import rospy 
 import threading
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -28,10 +30,11 @@ import geometry_msgs.msg
 import sys
 sys.path.append("../")
 
+BASE_PATH = Path(os.path.dirname(__file__))
 
-WAYPOINT_POSITIONS = [-13.5,2.5,0, -10.25,4.0,0, -7.75,6.0,0, -7.75,-6.0,0, -15.0,-5.0,0, -2.3,-4.0,0]
+WAYPOINT_POSITIONS = [1.46,9.0,0, 5.25,3.8,0, 14.3,-3.2,0, 2.75,-7.5,0, -8.0,-7.0,0, -15.1,-4.8,0]
 
-WAYPOINT_YAWS = [90, 90, 90, -90, 180, -90]
+WAYPOINT_YAWS = [180, 90, 0, -90, -90, 180]
 
 SPEED = 1
 
@@ -146,8 +149,8 @@ class Waypoint_Label:
     def delete(self):
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/delete_model', DeleteModel)
-        rospy.wait_for_service('gazebo/delete_model', 5.0)
-        rospy.sleep(.1)
+        rospy.wait_for_service('gazebo/delete_model', 2.0)
+        rospy.sleep(.2)
         res = spawn_model_prox(self.model_name)
         rospy.loginfo(f'Deleted {self.model_name}, {res}')
         self.spawned = False
@@ -157,16 +160,17 @@ class Waypoint_Label:
             return
         if self.spawned:
             self.delete()
-        rospy.wait_for_service('gazebo/spawn_sdf_model', 5.0)
+        rospy.sleep(.2)
+        rospy.wait_for_service('gazebo/spawn_sdf_model', 2.0)
         spawn_model_prox = rospy.ServiceProxy(
             'gazebo/spawn_sdf_model', SpawnModel)
         spawn_pose = Pose()
         spawn_pose.position.x = x
         spawn_pose.position.y = y
-        spawn_pose.position.z = 2.0 
+        spawn_pose.position.z = 2.5 
         model_xml = WP_Label.replace('NAME', self.model_name)
         model_xml = model_xml.replace('COLOR', color)
-        rospy.sleep(.1)
+        rospy.sleep(.2)
         
         res = spawn_model_prox(
             self.model_name, model_xml, '', spawn_pose, 'world')
@@ -234,7 +238,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
-        self.addi_reward_multiply_value = 10   # We are more concerned with reducing the overall time rather than the time it takes to get to a certain waypoint.
+        self.addi_reward_multiply_value = 20   # We are more concerned with reducing the overall time rather than the time it takes to get to a certain waypoint.
 
         # Initialize basic reward in Q-table based on the time taken between (the starting point + waypoints) and (waypoints) in an obstacle-free environment
         if self.initialize_Q_table_by_time:
@@ -342,7 +346,9 @@ class DynamicObstacleNavigationMir100Sim:
             rospy.loginfo("All waypoints have been reached!")
             # If robot completed the route give additional reward
             ## Additional reward inversely proportional to time since start of episode.
-            reward += (self.max_time/(self.overall_time + 0.01)) * self.addi_reward_multiply_value
+            additional_reward = (self.max_time/(self.overall_time + 0.01)) * self.addi_reward_multiply_value
+            rospy.loginfo(f"[{self._name}] gets additioanl_reward for this episode: {additional_reward}!")
+            reward += additional_reward
 
         # Episode end if maximum time is reached
         if self.overall_time >= self.max_time:
@@ -413,7 +419,7 @@ class DynamicObstacleNavigationMir100Sim:
         _dist = dist(
             self.mir100_pos_x, self.mir100_pos_y, 
             self.waypoints[action].position.x, self.waypoints[action].position.y)
-        if _dist < 0.2:
+        if _dist < 0.5:
             self.waypoints_status[action] = 1
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
@@ -455,8 +461,8 @@ class DynamicObstacleNavigationMir100Sim:
             rospy.sleep(1)
             x, y = self._get_robot_position()
             _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
-            if _dist < 0.2:
-                rospy.loginfo(f'Close enough: {_dist}')
+            if _dist < 0.5:
+                rospy.loginfo(f'Close to waypoint, [{self._name}] is considered to have reached the waypoint, distance to waypoint: {_dist}')
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
                 return
@@ -589,7 +595,7 @@ def run_episode(env,agent):
         # Update the caches
         episode_reward += r # The total reward of each episode
         s = s_next
-        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished! Time to start a new episode")
+        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
         
         # If the episode is terminated
         i += 1
@@ -644,29 +650,38 @@ def run_num_episodes(env,agent,num_episodes=500):
     for i in range(num_episodes):
 
         # Run the episode
-        rospy.loginfo(f"[mir100_rl_1] episode <{i}>!")
+        ep_i = i + 1
+        rospy.loginfo(f"[mir100_rl_1] episode <{ep_i}>! (total number of episode: {num_episodes})")
         env,agent,episode_reward = run_episode(env,agent)
 
         overall_times.append(env.overall_time)
+        rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
         rewards.append(episode_reward)
+        rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
+    
+    rospy.loginfo("All training of the [mir100_rl_1] robot is over! Plot the result!")
         
-    # Show rewards and overall time
-    fig, ax = plt.subplots(3, 1, figsize=(15,15))
-    ax[0].plot(rewards)
-    ax[1].plot(overall_times)
-    ax[2].plot(agent.exploration_rate)
-    ax[0].set_title(f"Rewards over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-    ax[1].set_title(f"Overall Time Taken over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-    ax[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
-    ax[0].set_xlabel("Episode")
-    ax[0].set_ylabel("Rewards")
-    ax[1].set_xlabel("Episode")
-    ax[1].set_ylabel("Overall Time (Unit: second)")
-    ax[2].set_xlabel(f"Number of Training({num_training} Times)")
-    ax[2].set_ylabel("Epsilon")
-    fig.tight_layout()
+    # Show rewards, overall time, and exploration rate(epsilon)
+    fig1, ax1 = plt.subplots(3, 1, figsize=(15,15))
+    ax1[0].plot(rewards)
+    ax1[1].plot(overall_times)
+    ax1[2].plot(agent.exploration_rate)
+    ax1[0].set_title(f"Rewards over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+    ax1[1].set_title(f"Overall Time Taken over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+    ax1[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
+    ax1[0].set_xlabel("Episode")
+    ax1[0].set_ylabel("Rewards")
+    ax1[1].set_xlabel("Episode")
+    ax1[1].set_ylabel("Overall Time (Unit: second)")
+    ax1[2].set_xlabel(f"Number of Training({num_training} Times)")
+    ax1[2].set_ylabel("Epsilon")
+    fig1.tight_layout()
     plt.subplots_adjust(wspace=0,hspace=0.25)
-    plt.savefig('../Results_Plot/Rewards_and_OverallTime.png', dpi = 200)
+
+    results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
+    if not results_path.exists():
+        results_path.mkdir()
+    plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
     plt.show()
 
     return env,agent
@@ -678,31 +693,43 @@ def run_num_episodes(env,agent,num_episodes=500):
 if __name__ == u'__main__':
     rospy.init_node('mir100_rl_1', anonymous=True)
 
-    rospy.loginfo('sleep for 1 second')
-    time.sleep(1)
+    rospy.loginfo('sleep for 2 second')
+    time.sleep(2)
     rospy.loginfo('wait for service to unpause')
     rospy.wait_for_service('/gazebo/unpause_physics')
     rospy.loginfo('calling service to unpause')
-    pause_physics_client = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
-    pause_physics_client(EmptyRequest())
+    unpause_physics_client = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
+    unpause_physics_client(EmptyRequest())
     rospy.loginfo('should be unpaused')
 
     env = DynamicObstacleNavigationMir100Sim()
 
-    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.99,gamma = 0.95,lr = 0.8)
+    """        
+    gamma           # Discounting rate
+    lr              # Learning rate
+    
+    # Exploration parameters
+    epsilon         # Exploration rate
+    epsilon_min     # Minimum exploration rate
+    epsilon_decay   # Exponential decay rate 
+    """
+    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    run_num_episodes(env,agent,num_episodes = 5)
+    run_num_episodes(env,agent,num_episodes = 10)
+
+    pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
+    pause_physics_client(EmptyRequest())
 
     # Plot the Q table
-    fig, ax = plt.subplots(1, 1, figsize=(12,3))
+    fig2, ax2 = plt.subplots(1, 1, figsize=(12,3))
     data = agent.Q
     column_labels = ['waypoint %d' % y for y in range(env.action_space)]
     row_labels = ['Starting point']
     row_labels += column_labels
     df = pd.DataFrame(data,columns=column_labels)
-    ax.axis('tight')
-    ax.axis('off')
-    ax.table(cellText=df.values,
+    ax2.axis('tight')
+    ax2.axis('off')
+    ax2.table(cellText=df.values,
             rowLabels=row_labels,
             colLabels=df.columns,
             rowColours =["yellow"] * env.state_space,  
@@ -710,6 +737,10 @@ if __name__ == u'__main__':
             loc="center",
             cellLoc="center",
             rowLoc="center")
-    ax.set_title("Q Table")
-    plt.savefig('../Results_Plot/Q_table.png', dpi = 200)
+    ax2.set_title("Q Table")
+    
+    results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
+    if not results_path.exists():
+        results_path.mkdir()
+    plt.savefig(results_path / 'Q_table.png', dpi = 200)
     plt.show()

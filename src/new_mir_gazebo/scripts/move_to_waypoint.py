@@ -26,18 +26,16 @@ OBS = '''<?xml version='1.0'?>
       </inertial>
       <collision name='NAME_collision'>
         <geometry>
-          <cylinder>
-            <radius>0.3</radius>
-            <length>1.8</length>
-          </cylinder>
+          <box>
+            <size>1.0 1.0 1.8</size>
+          </box>
         </geometry>
       </collision>
       <visual name='NAME_visual'>
         <geometry>
-          <cylinder>
-            <radius>0.3</radius>
-            <length>1.8</length>
-          </cylinder>
+          <box>
+            <size>0.8 0.8 1.8</size>
+          </box>
         </geometry>
         <material>
           <lighting>1</lighting>
@@ -104,12 +102,12 @@ class Obstacle:
             self.pause_start = None
 
         percentage = (now - self.start) / (self.end - self.start)
-        rospy.loginfo(f'calculated percentage: {percentage}')
+        # rospy.loginfo(f'calculated percentage: {percentage}')
         percentage += self.add_percentage
-        rospy.loginfo(f'wait time: {self.add_percentage}')
+        # rospy.loginfo(f'wait time: {self.add_percentage}')
         # check if we need to get the next waypoint
         if percentage >= 1.0:
-            rospy.loginfo(f'switch to next waypoint')
+            # rospy.loginfo(f'switch to next waypoint')
             self.waypoint_idx += 1
             if self.waypoint_idx + 1 >= len(path):
                 # we are at the last waypoint, loop!
@@ -146,7 +144,7 @@ class Obstacle:
         resp = get_state(model_name = "mir")
         dist_pos = math.sqrt((position.x - resp.pose.position.x)**2 + (position.y - resp.pose.position.y)**2)
         # rospy.loginfo(dist_pos)
-        return dist_pos < 3
+        return dist_pos < 1.8
 
 
 
@@ -165,11 +163,11 @@ if __name__ == u'__main__':
 
     obstacle1 = Obstacle('first_obstacle')
     obstacle1.waypoints = [
-        Waypoint(-13.0, 3.0, 0),
-        Waypoint(-13.0, -3.0, 12),
-        Waypoint(-13.0, 3.0, 12),
+        Waypoint(6.0, 0, 0),
+        Waypoint(18.0, 0, 16),
+        Waypoint(6.0, 0, 16),
     ]
-    obstacle1.spawn(-13.0, 3.0)
+    obstacle1.spawn(6.0, 0)
 
     # obstacle2 = Obstacle('second_obstacle')
     # obstacle2.waypoints = [
