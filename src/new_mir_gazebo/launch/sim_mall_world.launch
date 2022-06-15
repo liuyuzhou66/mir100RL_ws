@@ -34,7 +34,7 @@
     <include file="$(find new_mir_gazebo)/launch/includes/spawn_mall.launch.xml" />
     
     <!-- Spawn the moving obstcales -->
-    <!-- <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" />  -->
+    <include file="$(find new_mir_gazebo)/launch/moving_obstcales.launch" /> 
 
     <!-- Launch amcl localization node -->
     <include file="$(find mir_gazebo)/launch/fake_localization.launch">

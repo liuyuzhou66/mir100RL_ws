@@ -144,7 +144,7 @@ class Obstacle:
         resp = get_state(model_name = "mir")
         dist_pos = math.sqrt((position.x - resp.pose.position.x)**2 + (position.y - resp.pose.position.y)**2)
         # rospy.loginfo(dist_pos)
-        return dist_pos < 1.8
+        return dist_pos < 2.0
 
 
 
@@ -169,15 +169,15 @@ if __name__ == u'__main__':
     ]
     obstacle1.spawn(6.0, 0)
 
-    # obstacle2 = Obstacle('second_obstacle')
-    # obstacle2.waypoints = [
-    #     Waypoint(-11.0, 0, 0),
-    #     Waypoint(-1.0, 0, 20),
-    #     Waypoint(-11.0, 0, 20)
-    # ]
-    # obstacle2.spawn(-11.0, 0)
+    obstacle2 = Obstacle('second_obstacle')
+    obstacle2.waypoints = [
+        Waypoint(-1.0, 0, 0),
+        Waypoint(-11.0, 0, 14),
+        Waypoint(-1.0, 0, 14)
+    ]
+    obstacle2.spawn(-1.0, 0)
 
     mtwp = MoveToWaypoint()
-    mtwp.obstacles = [obstacle1] #, obstacle2]
+    mtwp.obstacles = [obstacle1, obstacle2]
     mtwp.move_obstacles()
 

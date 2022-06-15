@@ -32,9 +32,9 @@ sys.path.append("../")
 
 BASE_PATH = Path(os.path.dirname(__file__))
 
-WAYPOINT_POSITIONS = [1.46,9.0,0, 5.25,3.8,0, 14.3,-3.2,0, 2.75,-7.5,0, -8.0,-7.0,0, -15.1,-4.8,0]
+WAYPOINT_POSITIONS = [-13.0,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
 
-WAYPOINT_YAWS = [180, 90, 0, -90, -90, 180]
+WAYPOINT_YAWS = [90, 20, 90, -90, -90, 0]
 
 SPEED = 1
 
@@ -92,7 +92,7 @@ State: The waypoint that the robot has reached so far
 
 Action: Next waypoint to go
 
-Reward: 1-  agent gets a reward of -1 for each second
+Reward: 1-  agent gets a reward of -1 for each second 
         
         2-  If a waypoint is delivered in that timestep, 
             it gets a positive reward inversely proportional to the time taken to deliver.
@@ -304,10 +304,11 @@ class DynamicObstacleNavigationMir100Sim:
         new_state = action + 1
         
         # Get reward from previous state and action
+        """
         reward_before_action = self._get_reward()
         reward_before_action = round(reward_before_action, 2)
         rospy.loginfo(f"[{self._name}] gets reward before action: {reward_before_action}!")
-
+        """
         # Update the waypoints_status and the time elapsed
         self._play_action(action)
         
@@ -339,11 +340,13 @@ class DynamicObstacleNavigationMir100Sim:
             basic_reward = 0
 
         # Get reward for new action
-        reward = self._get_reward() - reward_before_action + basic_reward
+        reward = self._get_reward()
+        # reward = self._get_reward() - reward_before_action + basic_reward
         reward = round(reward, 2)
         rospy.loginfo(f"[{self._name}] gets reward for new action [{action}]: {reward}!")
 
         # End episode when all waypoints have been visited
+        """
         if np.sum(self.waypoints_status) == self.num_waypoints:
             done = True
             rospy.loginfo("All waypoints have been reached!")
@@ -353,7 +356,7 @@ class DynamicObstacleNavigationMir100Sim:
             additional_reward = round(additional_reward, 2)
             rospy.loginfo(f"[{self._name}] gets additional_reward for this episode: {additional_reward}!")
             reward += additional_reward
-
+        """
         # Episode end if maximum time is reached
         if self.overall_time >= self.max_time:
             done = True
@@ -554,7 +557,8 @@ class DynamicObstacleNavigationMir100Sim:
         If all the waypoints are delivered and the agent is back to the start point, 
         it gets an additional reward inversely proportional to time since start of episode.
         """
-        common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.01)) - self.overall_time
+        # common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.01)) - self.overall_time
+        common_reward = -1 * self.overall_time
         common_reward = round(common_reward, 2)
         rospy.loginfo(f"[{self._name}] calculates common reward: {common_reward}")
         # common_reward = np.sum(np.asarray(waypoints_status) * max_time / (np.asarray(waypoints_time) + 0.01)) - overall_time
@@ -645,7 +649,7 @@ class DeliveryQAgent(QAgent):
 
 
 
-def run_num_episodes(env,agent,num_episodes=500):
+def run_num_episodes(env,agent,num_episodes=1000):
     # Store the rewards
     rewards = []
     overall_times = []
@@ -686,6 +690,9 @@ def run_num_episodes(env,agent,num_episodes=500):
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
+    # np.save(results_path / "rewards.npy", rewards)
+    # np.save(results_path / "overall_times.npy", overall_times)
+    # np.save(results_path / "exploration_rate.npy", agent.exploration_rate)
     plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
     plt.show()
 
@@ -718,7 +725,7 @@ if __name__ == u'__main__':
     epsilon_min     # Minimum exploration rate
     epsilon_decay   # Exponential decay rate 
     """
-    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.99,gamma = 0.95,lr = 0.8)
+    agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
     num_episodes = 5
     run_num_episodes(env,agent,num_episodes)
@@ -748,5 +755,6 @@ if __name__ == u'__main__':
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
+    np.save(results_path / "Qtable.npy", data)
     plt.savefig(results_path / 'Q_table.png', dpi = 200)
     plt.show()
