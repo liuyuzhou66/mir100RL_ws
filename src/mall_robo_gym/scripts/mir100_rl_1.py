@@ -192,7 +192,7 @@ class Waypoint_Label:
 class DynamicObstacleNavigationMir100Sim:
     def __init__(self,**kwargs):
         self._name = 'mir100_rl_1'
-        rospy.loginfo(f'[{self._name}] starting node DynamicObstacleNavigationMir100Sim')
+        rospy.loginfo(f'[{self._name}] starting node <DynamicObstacleNavigationMir100Sim>')
         self.waypoints = []
         self.waypoints += [
             Waypoint(Point(*WAYPOINT_POSITIONS[i*3:(i*3)+3]),
@@ -234,11 +234,11 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 1800         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
+        self.max_time = 900         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
-        self.addi_reward_multiply_value = 10   # We are more concerned with reducing the overall time rather than the time it takes to get to a certain waypoint.
+        #self.addi_reward_multiply_value = 10   # We are more concerned with reducing the overall time rather than the time it takes to get to a certain waypoint.
 
         # Initialize basic reward in Q-table based on the time taken between (the starting point + waypoints) and (waypoints) in an obstacle-free environment
         if self.initialize_Q_table_by_time:
@@ -268,7 +268,7 @@ class DynamicObstacleNavigationMir100Sim:
         # Get the time robot start path planning
         time = rospy.get_rostime()
         self.time_start = time.to_sec()
-        rospy.loginfo(f"[{self._name}] The time to start timing is [{self.time_start}]")
+        rospy.loginfo(f"[{self._name}] The time to reset time_start is [{self.time_start}]")
 
         # Reset the overall time to 0
         self.overall_time = 0
@@ -302,13 +302,14 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Update the new state
         new_state = action + 1
-        
-        # Get reward from previous state and action
+
         """
+        # Get reward from previous state and action
         reward_before_action = self._get_reward()
         reward_before_action = round(reward_before_action, 2)
         rospy.loginfo(f"[{self._name}] gets reward before action: {reward_before_action}!")
         """
+
         # Update the waypoints_status and the time elapsed
         self._play_action(action)
         
@@ -325,38 +326,32 @@ class DynamicObstacleNavigationMir100Sim:
         ## e.g. if we have 6 waypoints, then point index = 1 2 3 4 5 6
         if visited_point_index not in self.visited_points:
             self.visited_points.append(visited_point_index)
+        rospy.loginfo(f"[{self._name}] visited point list: {self.visited_points}!")
 
         # Calculate initial reward based on time in a known environment without obstacles
         if self.initialize_Q_table_by_time:
-            # The longer the the time, the smaller the basic reward
-            # We need to know how to involve the initial reward value into the Q value update, 
-            # Do we want the initial reward to have a large impact on the total reward?
-            ## what is the relationship between the initial reward value and time? 
-            ### Inverse proportional function: y = 10/x (self.max_time / self.q_visited_points[state, action])
-            ### Exponential function: y = 0.5^x
-            ### Linear function: y = -1*x
             basic_reward = -1 * self.q_visited_points[state, action] # try all three options to compare which way is better.
         else:
             basic_reward = 0
 
         # Get reward for new action
-        reward = self._get_reward()
-        # reward = self._get_reward() - reward_before_action + basic_reward
-        reward = round(reward, 2)
+        reward = self._get_reward(action) + basic_reward
+        ## reward = self._get_reward() - reward_before_action + basic_reward
         rospy.loginfo(f"[{self._name}] gets reward for new action [{action}]: {reward}!")
 
         # End episode when all waypoints have been visited
-        """
         if np.sum(self.waypoints_status) == self.num_waypoints:
             done = True
             rospy.loginfo("All waypoints have been reached!")
+            """
             # If robot completed the route give additional reward
             ## Additional reward inversely proportional to time since start of episode.
             additional_reward = (self.max_time/(self.overall_time + 0.01)) * self.addi_reward_multiply_value
             additional_reward = round(additional_reward, 2)
             rospy.loginfo(f"[{self._name}] gets additional_reward for this episode: {additional_reward}!")
             reward += additional_reward
-        """
+            """
+            
         # Episode end if maximum time is reached
         if self.overall_time >= self.max_time:
             done = True
@@ -388,9 +383,10 @@ class DynamicObstacleNavigationMir100Sim:
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_red(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
-        # wp_name = f"Waypoint_{action}"
-        # sphere = self.waypoint_labels[wp_name]
-        # sphere.spawn_red(self.waypoints[action].position.x, self.waypoints[action].position.y)
+        # Calculate the start time to each waypoint
+        time = rospy.get_rostime()
+        self.waypoint_time_start = time.to_sec()
+        rospy.loginfo(f"[{self._name}] The time to start timing for action [{action}] is [{self.waypoint_time_start}]")
 
         # Move robot to next_waypoint
         wp = self.waypoints[action]
@@ -403,29 +399,31 @@ class DynamicObstacleNavigationMir100Sim:
         self._get_robot_position()
 
         # Update the elapsed time for reaching each waypoint
+        """
         for i in range(self.num_waypoints):
             if self.waypoints_status[i] == 0:
                 time = rospy.get_rostime()
                 time_s = time.to_sec()
-                wp_time = time_s - self.time_start
+                wp_time = time_s - self.waypoint_time_start
                 self.waypoints_time[i] = round(wp_time, 2)
                 rospy.loginfo(f"[{self._name}] waypoints_time[{i}] = {self.waypoints_time[i]}, done!")
         rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
         rospy.loginfo(f"[{self._name}] waypoints_time taken: {self.waypoints_time}")
+        """
+        if self.waypoints_status[action] == 0:
+            time = rospy.get_rostime()
+            time_s = time.to_sec()
+            wp_time = time_s - self.waypoint_time_start
+            self.waypoints_time[action] = round(wp_time, 2)
+            rospy.loginfo(f"[{self._name}] waypoints_time[{action}] = {wp_time}, done!")
+        rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
+        rospy.loginfo(f"[{self._name}] waypoints_time list: {self.waypoints_time}")
 
         # Update the waypoints_status
-        """
-        for i in range(self.num_waypoints):
-            if self.waypoints_status[i] == 0:
-                # When the robot reaches the waypoint
-                if abs(self.mir100_pos_x - self.waypoints[action].position.x) < 0.5 and abs(self.mir100_pos_y - self.waypoints[action].position.y) < 0.5: 
-                    # Will there be a situation where the coordinates cannot be exactly the same?
-                    self.waypoints_status[i] = 1
-        """
         _dist = dist(
             self.mir100_pos_x, self.mir100_pos_y, 
             self.waypoints[action].position.x, self.waypoints[action].position.y)
-        if _dist < 0.5:
+        if _dist < 0.5: # distance of the waypoint to the robot < 0.5 m
             self.waypoints_status[action] = 1
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
@@ -462,6 +460,7 @@ class DynamicObstacleNavigationMir100Sim:
         res = client.get_result()
         rospy.loginfo(f"RESULT: {res}")
 
+
     def move_base_watcher_thread(self, goal_pose):
         while True:
             rospy.sleep(1)
@@ -472,6 +471,7 @@ class DynamicObstacleNavigationMir100Sim:
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
                 return
+
 
     def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
         rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
@@ -547,7 +547,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 
     # Get the reward for each pair of (state, action)
-    def _get_reward(self):
+    def _get_reward(self, action):
         """
         agent gets a reward of -1 for each time step
         
@@ -558,10 +558,9 @@ class DynamicObstacleNavigationMir100Sim:
         it gets an additional reward inversely proportional to time since start of episode.
         """
         # common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.01)) - self.overall_time
-        common_reward = -1 * self.overall_time
+        common_reward = -1 * self.waypoints_time[action]
         common_reward = round(common_reward, 2)
         rospy.loginfo(f"[{self._name}] calculates common reward: {common_reward}")
-        # common_reward = np.sum(np.asarray(waypoints_status) * max_time / (np.asarray(waypoints_time) + 0.01)) - overall_time
 
         return common_reward
 
@@ -665,8 +664,15 @@ def run_num_episodes(env,agent,num_episodes=1000):
 
         overall_times.append(env.overall_time)
         rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
+        shortest_t = min(overall_times)
+        index_shortest_t = overall_times.index(shortest_t)
+        episode_shortest_t = index_shortest_t + 1
+        
         rewards.append(episode_reward)
         rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
+        shortest_t_reward = rewards[index_shortest_t]
+        rospy.loginfo(f"The minimum time for the [mir100_rl_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}> with reward ({shortest_t_reward})!")
+
     
     rospy.loginfo("All training of the [mir100_rl_1] robot is over! Plot the result!")
         
@@ -690,9 +696,9 @@ def run_num_episodes(env,agent,num_episodes=1000):
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
-    # np.save(results_path / "rewards.npy", rewards)
-    # np.save(results_path / "overall_times.npy", overall_times)
-    # np.save(results_path / "exploration_rate.npy", agent.exploration_rate)
+    np.savetxt(results_path / "rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
+    np.savetxt(results_path / "overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
+    np.savetxt(results_path / "exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
     plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
     plt.show()
 
@@ -727,7 +733,7 @@ if __name__ == u'__main__':
     """
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    num_episodes = 5
+    num_episodes = 10
     run_num_episodes(env,agent,num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)

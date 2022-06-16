@@ -163,9 +163,9 @@ if __name__ == u'__main__':
 
     obstacle1 = Obstacle('first_obstacle')
     obstacle1.waypoints = [
-        Waypoint(6.0, 0, 0),
-        Waypoint(18.0, 0, 16),
-        Waypoint(6.0, 0, 16),
+        Waypoint(0.0, 0, 0),
+        Waypoint(18.0, 0, 20),
+        Waypoint(0.0, 0, 20),
     ]
     obstacle1.spawn(6.0, 0)
 

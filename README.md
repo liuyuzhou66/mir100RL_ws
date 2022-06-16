@@ -1,6 +1,11 @@
 # mir100RL_ws
 
-## Start the training
+## Greedy Algorithm
+```
+clear && roslaunch mall_robo_gym mir100_greedy_1.launch
+```
+## Reinforcement learning
+### Start the training
 ```
 clear && roslaunch mall_robo_gym mir100_rl_1.launch
 ```
@@ -22,8 +27,9 @@ cd ~/mir100RL_ws/src/mir_robot/mir_navigation/config/move_base_common_params.yam
 - Green sphere: those waypoints that have been visited
 - Red sphere: the waypoint that the robot is currently heading to
 
-## Plot the result
+### Plot the result
 ![Rewards_and_OverallTime](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Rewards_and_OverallTime.png)
 
-## Plot the Q table
+### Plot the Q table
 ![Q_table](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Q_table.png)
+
