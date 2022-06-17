@@ -278,7 +278,7 @@ class PathPlanning:
     def calculate_path_distance(self, start_x, start_y, start_yaw, goal_x, goal_y, goal_yaw):
         global subscriber
         topic = "/move_base/GlobalPlanner/plan"
-        rospy.init_node('calculate_path_distance', anonymous=True)
+        # rospy.init_node('calculate_path_distance', anonymous=True)
         pub_goal = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
         pub_start = rospy.Publisher('initialpose', PoseWithCovarianceStamped, queue_size=10)
         subscriber = rospy.Subscriber(topic, NavMsg_Path.Path, self.PathDistance)
@@ -327,22 +327,22 @@ class PathPlanning:
         return self.total_distance
 
     def PathDistance(self, path):
-            global subscriber
-            first_time = True
-            prev_x = self.mir100_pos_x
-            prev_y = self.mir100_pos_y
-            self.total_distance = 0.0
-            if len(path.poses) > 0:
-                for current_point in path.poses:
-                    x = current_point.pose.position.x
-                    y = current_point.pose.position.y
-                    if not first_time:
-                        self.total_distance += math.hypot(prev_x - x, prev_y - y) 
-                    else:
-                        first_time = False
-                    prev_x = x
-                    prev_y = y
-                subscriber.unregister()
+        global subscriber
+        first_time = True
+        prev_x = self.mir100_pos_x
+        prev_y = self.mir100_pos_y
+        self.total_distance = 0.0
+        if len(path.poses) > 0:
+            for current_point in path.poses:
+                x = current_point.pose.position.x
+                y = current_point.pose.position.y
+                if not first_time:
+                    self.total_distance += math.hypot(prev_x - x, prev_y - y) 
+                else:
+                    first_time = False
+                prev_x = x
+                prev_y = y
+            subscriber.unregister()
     
     def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
         rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
