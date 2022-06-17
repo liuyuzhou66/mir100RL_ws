@@ -4,6 +4,7 @@
 import os
 import math
 import time
+from tracemalloc import stop
 import rospy, roslib
 import threading
 from pathlib import Path
@@ -16,7 +17,7 @@ from scipy.spatial.distance import cdist
 from gazebo_msgs.srv import GetModelState, SetModelState, SpawnModel, DeleteModel
 from gazebo_msgs.msg import ModelState 
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
-from tf.transformations import quaternion_from_euler
+from tf.transformations import quaternion_from_euler, euler_from_quaternion
 from agents.q_agent import QAgent
 from std_srvs.srv import Empty, EmptyRequest
 # Brings in the SimpleActionClient
@@ -24,7 +25,8 @@ import actionlib
 import move_base_msgs.msg
 import geometry_msgs.msg
 
-from nav_msgs.msg import Path   #?????????
+# from nav_msgs.msg import Path
+import nav_msgs.msg._Path as NavMsg_Path    #An array of poses that represents a Path for a robot to follow
 from move_base_msgs.msg import MoveBaseActionGoal
 from actionlib_msgs.msg import GoalID
 
@@ -39,6 +41,7 @@ WAYPOINT_YAWS = [90, 20, 90, -90, -90, 0]
 
 SPEED = 1
 
+subscriber = None
 
 def dist(x1, y1, x2, y2):
     return cdist(
@@ -146,10 +149,9 @@ class Waypoint_Label:
     def spawn_red(self, x, y):
         self._spawn(x, y, 'Red')
 
-
-
 class PathPlanning:
     def __init__(self):
+
         self._name = 'mir100_classic_1'
         rospy.loginfo(f'[{self._name}] starting node <Path_Planning>')
         # Create a list to store all the waypoints
@@ -175,19 +177,34 @@ class PathPlanning:
 
         self.path_dist = []
         self.waypoints_status = [0] * self.num_waypoints
+        # Initialize the overall time to 0
+        self.overall_time = 0
+
+        # Spawn blue sphere to waypoint by default
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 0:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
         # Get the time robot start path planning
         time = rospy.get_rostime()
         self.time_start = time.to_sec()
         rospy.loginfo(f"[{self._name}] starts timing at [{self.time_start}]")
 
-
     def reset_path_dist_list(self):
         self.path_dist = []
         
-
     def move_to_waypoint(self, wp_idx):
         done = False
+
+        # Sets the color of the point the robot is currently heading to to red
+        for j in range(len(WAYPOINT_YAWS)):
+            if j == wp_idx:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_red(self.waypoints[j].position.x, self.waypoints[j].position.y)
+
         # Move robot to next_waypoint
         wp = self.waypoints[wp_idx]
         wp_x = wp.position.x
@@ -219,18 +236,38 @@ class PathPlanning:
         if np.sum(self.waypoints_status) == self.num_waypoints:
             done = True
             rospy.loginfo("All waypoints have been reached!")
+            rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
+
+        # Update the color of waypoints that have been visited by the robot to green
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 1:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_green(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
         return done
 
-
     def pick_waypoint(self):
+        # Use current robot position as the starting point
+        self._get_robot_position()
+        mir_x = self.mir100_pos_x
+        mir_y = self.mir100_pos_y
+        mir_yaw = self.mir100_pos_yaw   # in radian
+
+        # Pick the nearest waypoint as the goal
         for wp_i in range(len(WAYPOINT_YAWS)):
-            wp = self.waypoints[wp_i]
-            wp_x = wp.position.x
-            wp_y = wp.position.y
-            wp_ori = wp.yaw
-            total_dist = self.calculate_path_distance(wp_x, wp_y, wp_ori)
-            self.path_dist.append(total_dist)
+            if self.waypoints_status[wp_i] == 0:
+                wp = self.waypoints[wp_i]
+                wp_x = wp.position.x
+                wp_y = wp.position.y
+                wp_ori = wp.yaw     # in degree
+
+                # Calculate the distance between the starting point and the waypoint
+                total_dist = self.calculate_path_distance(mir_x, mir_y, mir_yaw, wp_x, wp_y, wp_ori)
+                self.path_dist.append(total_dist)
+            else:
+                # If 
+                self.path_dist.append(np.inf)
         
         # Get the waypoint index of waypoint with the shortest path distance
         min_dist = min(self.path_dist)
@@ -238,7 +275,75 @@ class PathPlanning:
 
         return wp_index
 
+    def calculate_path_distance(self, start_x, start_y, start_yaw, goal_x, goal_y, goal_yaw):
+        global subscriber
+        topic = "/move_base/GlobalPlanner/plan"
+        rospy.init_node('calculate_path_distance', anonymous=True)
+        pub_goal = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
+        pub_start = rospy.Publisher('initialpose', PoseWithCovarianceStamped, queue_size=10)
+        subscriber = rospy.Subscriber(topic, NavMsg_Path.Path, self.PathDistance)
 
+        start_point = PoseWithCovarianceStamped()
+        # Start point position x
+        start_point.pose.pose.position.x = start_x
+
+        # Start point position y     
+        start_point.pose.pose.position.y = start_y
+        start_point.header.stamp = rospy.Time.now()
+
+        # Start point orientation (start_yaw is in radian)
+        start_q_angle = quaternion_from_euler(0.0, 0.0, start_yaw)
+        start_point.pose.pose.orientation = geometry_msgs.msg.Quaternion(*start_q_angle)
+
+        start_point.header.frame_id = 'map'
+        rospy.sleep(1)
+        pub_start.publish(start_point)
+        rospy.loginfo(f"Start Point: {start_point}")
+        rospy.loginfo("--------------------")
+
+
+        goal_point = PoseStamped()
+
+        # Goal point position x
+        goal_point.pose.position.x = goal_x
+
+        # Goal point position y        
+        goal_point.pose.position.y = goal_y  
+        goal_point.header.stamp = rospy.Time.now()
+
+        # Goal point orientation (goal_yaw is in degree)
+        goal_q_angle = quaternion_from_euler(0.0, 0.0, np.deg2rad(goal_yaw))
+        goal_point.pose.orientation = geometry_msgs.msg.Quaternion(*goal_q_angle)
+
+        goal_point.header.frame_id = 'map'
+        rospy.sleep(2)
+        pub_goal.publish(goal_point)
+        rospy.loginfo(f"Goal Point:{goal_point}")
+        rospy.loginfo("--------------------")
+
+        # Simply keeps your node from exiting until the node has been shutdown 
+        rospy.spin()
+
+        return self.total_distance
+
+    def PathDistance(self, path):
+            global subscriber
+            first_time = True
+            prev_x = self.mir100_pos_x
+            prev_y = self.mir100_pos_y
+            self.total_distance = 0.0
+            if len(path.poses) > 0:
+                for current_point in path.poses:
+                    x = current_point.pose.position.x
+                    y = current_point.pose.position.y
+                    if not first_time:
+                        self.total_distance += math.hypot(prev_x - x, prev_y - y) 
+                    else:
+                        first_time = False
+                    prev_x = x
+                    prev_y = y
+                subscriber.unregister()
+    
     def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
         rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
         goal_pose = Pose()
@@ -261,18 +366,16 @@ class PathPlanning:
         thread2.join()
         return
 
-
     def move_base_watcher_thread(self, goal_pose):
         while True:
             rospy.sleep(1)
-            x, y = self._get_robot_position()
+            x, y, yaw = self._get_robot_position()
             _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
             if _dist < 0.5:
                 rospy.loginfo(f'Close to waypoint, [{self._name}] is considered to have reached the waypoint, distance to waypoint: {_dist}')
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
                 return
-
 
     def _get_robot_position(self):
         rospy.wait_for_service('/gazebo/get_model_state')
@@ -281,25 +384,57 @@ class PathPlanning:
         resp = get_state(model_name = "mir")
         self.mir100_pos_x = resp.pose.position.x
         self.mir100_pos_y = resp.pose.position.y
+        euler_angles = euler_from_quaternion([resp.pose.orientation.x, resp.pose.orientation.y, resp.pose.orientation.z, resp.pose.orientation.w])
+        yaw = euler_angles[2]   # roll, pitch, <<yaw>> (in radian)
+        self.mir100_pos_yaw = yaw
         # rospy.loginfo(f"[{self._name}] get robot current position: ({self.mir100_pos_x}, {self.mir100_pos_y})!")
-        return self.mir100_pos_x, self.mir100_pos_y
+        return self.mir100_pos_x, self.mir100_pos_y, self.mir100_pos_yaw
 
 
 
 def run_greedy(P):
-    # Pick a waypoint which has shortest distance
-    wp_idx = P.pick_waypoint()
 
-    done,overall_time = P.move_to_waypoint(wp_idx)
+    max_step = P.num_waypoints
 
-    if done:
-        break
+    i = 0
 
-    return overall_time
+    while i < max_step:
+        # Reset the list of distance before move to each waypoint
+        P.reset_path_dist_list()
+        
+        # Pick a waypoint which has shortest distance
+        if np.sum(P.waypoints_status) < (max_step - 1):
+            wp_idx = P.pick_waypoint()
+            done = P.move_to_waypoint(wp_idx)
+        else:
+            # If only one waypoint left, then directly pick that one
+            wp_idx = P.waypoints_status.index(0)
+            done = P.move_to_waypoint(wp_idx)
+
+        i += 1
+        if done:
+            break
+
+    return P.overall_time
+
 
 
 if __name__ == u'__main__':
+    rospy.init_node('mir100_classic_1', anonymous=True)
+
+    rospy.loginfo('sleep for 2 second')
+    time.sleep(2)
+    rospy.loginfo('wait for service to unpause')
+    rospy.wait_for_service('/gazebo/unpause_physics')
+    rospy.loginfo('calling service to unpause')
+    unpause_physics_client = rospy.ServiceProxy('/gazebo/unpause_physics', Empty)
+    unpause_physics_client(EmptyRequest())
+    rospy.loginfo('should be unpaused')
+    
     planning = PathPlanning()
 
     run_greedy(planning)
+
+    pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
+    pause_physics_client(EmptyRequest())
 
