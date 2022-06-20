@@ -69,4 +69,3 @@ class QAgent(Agent):
             a = np.random.randint(self.actions_size)
 
         return a
-

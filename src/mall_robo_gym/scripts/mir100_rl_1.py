@@ -415,6 +415,7 @@ class DynamicObstacleNavigationMir100Sim:
             time_s = time.to_sec()
             wp_time = time_s - self.waypoint_time_start
             self.waypoints_time[action] = round(wp_time, 2)
+            wp_time = self.waypoints_time[action]
             rospy.loginfo(f"[{self._name}] waypoints_time[{action}] = {wp_time}, done!")
         rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
         rospy.loginfo(f"[{self._name}] waypoints_time list: {self.waypoints_time}")
@@ -559,7 +560,7 @@ class DynamicObstacleNavigationMir100Sim:
         """
         # common_reward = np.sum(np.asarray(self.waypoints_status) * self.max_time / (np.asarray(self.waypoints_time) + 0.01)) - self.overall_time
         common_reward = -1 * self.waypoints_time[action]
-        common_reward = round(common_reward, 2)
+        # common_reward = round(common_reward, 2)
         rospy.loginfo(f"[{self._name}] calculates common reward: {common_reward}")
 
         return common_reward
@@ -654,7 +655,6 @@ def run_num_episodes(env,agent,num_episodes=1000):
     overall_times = []
     num_training = env.num_waypoints * num_episodes
 
-    # Experience replay
     for i in range(num_episodes):
 
         # Run the episode
@@ -733,7 +733,7 @@ if __name__ == u'__main__':
     """
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    num_episodes = 10
+    num_episodes = 500
     run_num_episodes(env,agent,num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
@@ -764,3 +764,16 @@ if __name__ == u'__main__':
     np.save(results_path / "Qtable.npy", data)
     plt.savefig(results_path / 'Q_table.png', dpi = 200)
     plt.show()
+
+
+
+'''
+# Plot the Q table (248 episodes)
+Q = [[-20.0432,-28.80221184,-51.81420544,-54.2269442,-32.3849216,-26.1313925],
+[0.,-23.22090538,-51.2019303,-90.60766154,-56.0951552,-39.568],
+[-61.43098731,0.,-30.38721134,-48.84193036,-59.9104535,-57.1584],
+[-65.84730639,-37.64223675,0.,-47.12578281,-81.0624,-74.45248],
+[-73.01386054,-84.06634803,-58.03962755,0.,-34.15970303,-48.21888],
+[-59.28864286,-38.87843003,-86.68222464,-43.16215562,0.,-33.26145924],
+[-28.968,-36.4864,-61.29010326,-43.0292992,-48.46840592,0.]]
+'''
