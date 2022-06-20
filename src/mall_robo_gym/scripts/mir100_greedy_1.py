@@ -26,7 +26,7 @@ import move_base_msgs.msg
 import geometry_msgs.msg
 
 # from nav_msgs.msg import Path
-import nav_msgs.msg._Path as NavMsg_Path    #An array of poses that represents a Path for a robot to follow
+from nav_msgs.srv import GetPlan, GetPlanRequest
 from move_base_msgs.msg import MoveBaseActionGoal
 from actionlib_msgs.msg import GoalID
 
@@ -162,6 +162,11 @@ class PathPlanning:
             )
             for i in range(len(WAYPOINT_YAWS))]
 
+        rospy.wait_for_service('/move_base_node/make_plan')
+        self.make_plan = rospy.ServiceProxy(
+            '/move_base_node/make_plan', GetPlan)
+
+
         self.num_waypoints = len(self.waypoints)
 
         # Create a dictionary to store the spawn status of waypoint labels
@@ -262,6 +267,9 @@ class PathPlanning:
                 wp_y = wp.position.y
                 wp_ori = wp.yaw     # in degree
 
+
+                # total_dist = self.total_distances[wp_i]
+
                 # Calculate the distance between the starting point and the waypoint
                 total_dist = self.calculate_path_distance(mir_x, mir_y, mir_yaw, wp_x, wp_y, wp_ori)
                 self.path_dist.append(total_dist)
@@ -276,30 +284,21 @@ class PathPlanning:
         return wp_index
 
     def calculate_path_distance(self, start_x, start_y, start_yaw, goal_x, goal_y, goal_yaw):
-        global subscriber
-        topic = "/move_base/GlobalPlanner/plan"
-        # rospy.init_node('calculate_path_distance', anonymous=True)
-        pub_goal = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
-        pub_start = rospy.Publisher('initialpose', PoseWithCovarianceStamped, queue_size=10)
-        subscriber = rospy.Subscriber(topic, NavMsg_Path.Path, self.PathDistance)
-
-        start_point = PoseWithCovarianceStamped()
+        start_point = PoseStamped()
         # Start point position x
-        start_point.pose.pose.position.x = start_x
+        start_point.pose.position.x = start_x
 
         # Start point position y     
-        start_point.pose.pose.position.y = start_y
+        start_point.pose.position.y = start_y
         start_point.header.stamp = rospy.Time.now()
 
         # Start point orientation (start_yaw is in radian)
         start_q_angle = quaternion_from_euler(0.0, 0.0, start_yaw)
-        start_point.pose.pose.orientation = geometry_msgs.msg.Quaternion(*start_q_angle)
+        start_point.pose.orientation = geometry_msgs.msg.Quaternion(*start_q_angle)
 
         start_point.header.frame_id = 'map'
-        rospy.sleep(1)
-        pub_start.publish(start_point)
-        rospy.loginfo(f"Start Point: {start_point}")
-        rospy.loginfo("--------------------")
+        # rospy.loginfo(f"Start Point: {start_point}")
+        # rospy.loginfo("--------------------")
 
 
         goal_point = PoseStamped()
@@ -316,33 +315,30 @@ class PathPlanning:
         goal_point.pose.orientation = geometry_msgs.msg.Quaternion(*goal_q_angle)
 
         goal_point.header.frame_id = 'map'
-        rospy.sleep(2)
-        pub_goal.publish(goal_point)
-        rospy.loginfo(f"Goal Point:{goal_point}")
-        rospy.loginfo("--------------------")
+        # rospy.loginfo(f"Goal Point:{goal_point}")
+        # rospy.loginfo("--------------------")
 
-        # Simply keeps your node from exiting until the node has been shutdown 
-        rospy.spin()
+        plan = GetPlanRequest(start=start_point, goal=goal_point, tolerance=.1)
+        resp = self.make_plan(plan)
+        return self.PathDistance(resp.plan)
 
-        return self.total_distance
 
     def PathDistance(self, path):
-        global subscriber
         first_time = True
         prev_x = self.mir100_pos_x
         prev_y = self.mir100_pos_y
-        self.total_distance = 0.0
+        total_distance = 0.0
         if len(path.poses) > 0:
             for current_point in path.poses:
                 x = current_point.pose.position.x
                 y = current_point.pose.position.y
                 if not first_time:
-                    self.total_distance += math.hypot(prev_x - x, prev_y - y) 
+                    total_distance += math.hypot(prev_x - x, prev_y - y) 
                 else:
                     first_time = False
                 prev_x = x
                 prev_y = y
-            subscriber.unregister()
+        return total_distance
     
     def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
         rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
@@ -365,6 +361,24 @@ class PathPlanning:
         thread1.join()
         thread2.join()
         return
+
+    def move_base_thread(self, goal_pose):
+        client=actionlib.SimpleActionClient(
+            'move_base',
+            move_base_msgs.msg.MoveBaseAction)
+        self.action_client = client
+        client.wait_for_server(rospy.Duration(20))
+        goal=move_base_msgs.msg.MoveBaseGoal()
+        goal.target_pose.header.frame_id='map'
+        goal.target_pose.header.stamp=rospy.Time.now()
+        goal.target_pose.pose = goal_pose
+        rospy.loginfo(
+            f"[{self._name}] is sending next wayppoint position ("
+            f"{goal_pose.position.x}, {goal_pose.position.y})")
+        client.send_goal(goal)
+        client.wait_for_result(rospy.Duration(300))
+        res = client.get_result()
+        rospy.loginfo(f"RESULT: {res}")
 
     def move_base_watcher_thread(self, goal_pose):
         while True:
@@ -389,7 +403,6 @@ class PathPlanning:
         self.mir100_pos_yaw = yaw
         # rospy.loginfo(f"[{self._name}] get robot current position: ({self.mir100_pos_x}, {self.mir100_pos_y})!")
         return self.mir100_pos_x, self.mir100_pos_y, self.mir100_pos_yaw
-
 
 
 def run_greedy(P):
