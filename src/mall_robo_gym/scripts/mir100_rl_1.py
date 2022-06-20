@@ -649,58 +649,88 @@ class DeliveryQAgent(QAgent):
 
 
 
-def run_num_episodes(env,agent,num_episodes=1000):
+def run_num_episodes(env,agent,num_episodes=100):
     # Store the rewards
     rewards = []
     overall_times = []
     num_training = env.num_waypoints * num_episodes
-
-    for i in range(num_episodes):
-
-        # Run the episode
-        ep_i = i + 1
-        rospy.loginfo(f"[mir100_rl_1] episode <{ep_i}>! (total number of episode: {num_episodes})")
-        env,agent,episode_reward = run_episode(env,agent)
-
-        overall_times.append(env.overall_time)
-        rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
-        shortest_t = min(overall_times)
-        index_shortest_t = overall_times.index(shortest_t)
-        episode_shortest_t = index_shortest_t + 1
-        
-        rewards.append(episode_reward)
-        rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
-        shortest_t_reward = rewards[index_shortest_t]
-        rospy.loginfo(f"The minimum time for the [mir100_rl_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}> with reward ({shortest_t_reward})!")
-
     
-    rospy.loginfo("All training of the [mir100_rl_1] robot is over! Plot the result!")
-        
-    # Show rewards, overall time, and exploration rate(epsilon)
-    fig1, ax1 = plt.subplots(3, 1, figsize=(15,15))
-    ax1[0].plot(rewards)
-    ax1[1].plot(overall_times)
-    ax1[2].plot(agent.exploration_rate)
-    ax1[0].set_title(f"Rewards over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-    ax1[1].set_title(f"Overall Time Taken over Training({num_episodes} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-    ax1[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
-    ax1[0].set_xlabel("Episode")
-    ax1[0].set_ylabel("Rewards")
-    ax1[1].set_xlabel("Episode")
-    ax1[1].set_ylabel("Overall Time (Unit: second)")
-    ax1[2].set_xlabel(f"Number of Training({num_training} Times)")
-    ax1[2].set_ylabel("Epsilon")
-    fig1.tight_layout()
-    plt.subplots_adjust(wspace=0,hspace=0.25)
-
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
-    np.savetxt(results_path / "rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
-    np.savetxt(results_path / "overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
-    np.savetxt(results_path / "exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
-    plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
-    plt.show()
+
+    for i in range(num_episodes):
+        # Run the episode
+        ep_i = i + 1
+        rospy.loginfo(f"[mir100_rl_1] episode <{ep_i}>! (total number of episode: {ep_i})")
+        env,agent,episode_reward = run_episode(env,agent)
+
+        # Update the "overall_times"
+        overall_times.append(env.overall_time)
+        rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
+        np.savetxt(results_path / "overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
+        rospy.loginfo(f"[mir100_rl_1] successfully writes the overall_times to {results_path}!")
+        
+        # Update the "rewards"
+        rewards.append(episode_reward)
+        rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
+        np.savetxt(results_path / "rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
+        rospy.loginfo(f"[mir100_rl_1] successfully writes the rewards to {results_path}!")
+
+        # Update the "epsilon"
+        np.savetxt(results_path / "exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
+        rospy.loginfo(f"[mir100_rl_1] successfully writes the exploration_rate to {results_path}!")
+
+        shortest_t = min(overall_times)
+        index_shortest_t = overall_times.index(shortest_t)
+        episode_shortest_t = index_shortest_t + 1
+        shortest_t_reward = rewards[index_shortest_t]
+        rospy.loginfo(f"The minimum time for the [mir100_rl_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}> with reward ({shortest_t_reward})!")
+
+        # Show rewards, overall time, and exploration rate(epsilon)
+        fig1, ax1 = plt.subplots(3, 1, figsize=(15,15))
+        ax1[0].plot(rewards)
+        ax1[1].plot(overall_times)
+        ax1[2].plot(agent.exploration_rate)
+        ax1[0].set_title(f"Rewards over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[1].set_title(f"Overall Time Taken over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[0].set_xlabel("Episode")
+        ax1[0].set_ylabel("Rewards")
+        ax1[1].set_xlabel("Episode")
+        ax1[1].set_ylabel("Overall Time (Unit: second)")
+        ax1[2].set_xlabel(f"Number of Training({num_training} Times)")
+        ax1[2].set_ylabel("Epsilon")
+        fig1.tight_layout()
+        plt.subplots_adjust(wspace=0,hspace=0.25)
+        plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
+        #plt.show()
+        rospy.loginfo(f"[mir100_rl_1] successfully saves Rewards_and_OverallTime.png to {results_path}!")
+
+        # Plot the Q table
+        fig2, ax2 = plt.subplots(1, 1, figsize=(12,3))
+        data = agent.Q
+        column_labels = ['waypoint %d' % y for y in range(env.action_space)]
+        row_labels = ['Starting point']
+        row_labels += column_labels
+        df = pd.DataFrame(data,columns=column_labels)
+        ax2.axis('tight')
+        ax2.axis('off')
+        ax2.table(cellText=df.values,
+                rowLabels=row_labels,
+                colLabels=df.columns,
+                rowColours =["yellow"] * env.state_space,  
+                colColours =["yellow"] * env.action_space,
+                loc="center",
+                cellLoc="center",
+                rowLoc="center")
+        ax2.set_title(f"Q Table ({ep_i} Episodes)")
+        np.save(results_path / "Qtable.npy", data)
+        plt.savefig(results_path / 'Q_table.png', dpi = 200)
+        # plt.show()
+        rospy.loginfo(f"[mir100_rl_1] successfully saves Q_table.png to {results_path}!")
+
+    rospy.loginfo("All training of the [mir100_rl_1] robot is over!")
 
     return env,agent
 
@@ -733,47 +763,9 @@ if __name__ == u'__main__':
     """
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    num_episodes = 500
+    num_episodes = 800
     run_num_episodes(env,agent,num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
 
-    # Plot the Q table
-    fig2, ax2 = plt.subplots(1, 1, figsize=(12,3))
-    data = agent.Q
-    column_labels = ['waypoint %d' % y for y in range(env.action_space)]
-    row_labels = ['Starting point']
-    row_labels += column_labels
-    df = pd.DataFrame(data,columns=column_labels)
-    ax2.axis('tight')
-    ax2.axis('off')
-    ax2.table(cellText=df.values,
-            rowLabels=row_labels,
-            colLabels=df.columns,
-            rowColours =["yellow"] * env.state_space,  
-            colColours =["yellow"] * env.action_space,
-            loc="center",
-            cellLoc="center",
-            rowLoc="center")
-    ax2.set_title(f"Q Table ({num_episodes} Episodes)")
-    
-    results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
-    if not results_path.exists():
-        results_path.mkdir()
-    np.save(results_path / "Qtable.npy", data)
-    plt.savefig(results_path / 'Q_table.png', dpi = 200)
-    plt.show()
-
-
-
-'''
-# Plot the Q table (248 episodes)
-Q = [[-20.0432,-28.80221184,-51.81420544,-54.2269442,-32.3849216,-26.1313925],
-[0.,-23.22090538,-51.2019303,-90.60766154,-56.0951552,-39.568],
-[-61.43098731,0.,-30.38721134,-48.84193036,-59.9104535,-57.1584],
-[-65.84730639,-37.64223675,0.,-47.12578281,-81.0624,-74.45248],
-[-73.01386054,-84.06634803,-58.03962755,0.,-34.15970303,-48.21888],
-[-59.28864286,-38.87843003,-86.68222464,-43.16215562,0.,-33.26145924],
-[-28.968,-36.4864,-61.29010326,-43.0292992,-48.46840592,0.]]
-'''
