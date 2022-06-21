@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+from audioop import avg
 import os
 import math
 import time
@@ -35,7 +36,7 @@ sys.path.append("../")
 
 BASE_PATH = Path(os.path.dirname(__file__))
 
-WAYPOINT_POSITIONS = [-13.0,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
+WAYPOINT_POSITIONS = [-13.25,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
 
 WAYPOINT_YAWS = [90, 20, 90, -90, -90, 0]
 
@@ -150,9 +151,9 @@ class Waypoint_Label:
         self._spawn(x, y, 'Red')
 
 class PathPlanning:
-    def __init__(self):
+    def __init__(self, **kwargs):
 
-        self._name = 'mir100_classic_1'
+        self._name = 'mir100_greedy_1'
         rospy.loginfo(f'[{self._name}] starting node <Path_Planning>')
         # Create a list to store all the waypoints
         self.waypoints = []
@@ -185,6 +186,27 @@ class PathPlanning:
         # Initialize the overall time to 0
         self.overall_time = 0
 
+        # Get the time robot start path planning
+        time = rospy.get_rostime()
+        self.time_start = time.to_sec()
+        rospy.loginfo(f"[{self._name}] starts timing at [{self.time_start}]")
+
+
+    def reset(self):
+        rospy.loginfo(f"[{self._name}] reset!")
+
+        # Reset the waypoint status (1 is reached, 0 is not reached)
+        self.waypoints_status = [0] * self.num_waypoints
+
+        # teleport robot to the starting point
+        rospy.sleep(0.4)
+        self.teleport(self.StartPoint_x, self.StartPoint_y)
+
+        # Get the time robot start path planning
+        time = rospy.get_rostime()
+        self.time_start = time.to_sec()
+        rospy.loginfo(f"[{self._name}] The time to reset time_start is [{self.time_start}]")
+
         # Spawn blue sphere to waypoint by default
         for j in range(len(WAYPOINT_YAWS)):
             if self.waypoints_status[j] == 0:
@@ -192,14 +214,11 @@ class PathPlanning:
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
-        # Get the time robot start path planning
-        time = rospy.get_rostime()
-        self.time_start = time.to_sec()
-        rospy.loginfo(f"[{self._name}] starts timing at [{self.time_start}]")
 
     def reset_path_dist_list(self):
         self.path_dist = []
         
+
     def move_to_waypoint(self, wp_idx):
         done = False
 
@@ -252,6 +271,7 @@ class PathPlanning:
 
         return done
 
+
     def pick_waypoint(self):
         # Use current robot position as the starting point
         self._get_robot_position()
@@ -280,6 +300,7 @@ class PathPlanning:
         wp_index = self.path_dist.index(mini_dist)
 
         return wp_index
+
 
     def calculate_path_distance(self, start_x, start_y, start_yaw, goal_x, goal_y, goal_yaw):
         start_point = PoseStamped()
@@ -337,6 +358,7 @@ class PathPlanning:
                 prev_y = y
         return total_distance
     
+
     def move_base_action_client(self, goalx=0,goaly=0,goaltheta=0):
         rospy.loginfo(f"[{self._name}] starts moving to the next waypoint!")
         goal_pose = Pose()
@@ -359,6 +381,7 @@ class PathPlanning:
         thread2.join()
         return
 
+
     def move_base_thread(self, goal_pose):
         client=actionlib.SimpleActionClient(
             'move_base',
@@ -377,6 +400,7 @@ class PathPlanning:
         res = client.get_result()
         rospy.loginfo(f"RESULT: {res}")
 
+
     def move_base_watcher_thread(self, goal_pose):
         while True:
             rospy.sleep(1)
@@ -387,6 +411,31 @@ class PathPlanning:
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
                 return
+
+
+    def teleport(self, x, y):
+
+        rospy.loginfo(f"Teleport [{self._name}] robot to the starting point!")
+
+        state_msg = ModelState()
+        state_msg.model_name = "mir"
+        state_msg.pose.position.x = x
+        state_msg.pose.position.y = y
+
+        rospy.wait_for_service('/gazebo/set_model_state')
+        set_state = rospy.ServiceProxy(
+            '/gazebo/set_model_state', SetModelState)
+        resp = set_state(state_msg )
+        rospy.loginfo(f'[{self._name}] is teleported to the starting point({x}, {y})!')
+
+        pose_with_stamp_msg = PoseWithCovarianceStamped()
+        pose_with_stamp_msg.pose.pose.position.x = x
+        pose_with_stamp_msg.pose.pose.position.y = y
+        #rospy.wait_for_service('/initialpose')
+        pose_with_stamp = rospy.Publisher(
+            '/initialpose', PoseWithCovarianceStamped, queue_size=10)
+        resp = pose_with_stamp.publish(pose_with_stamp_msg )
+    
 
     def _get_robot_position(self):
         rospy.wait_for_service('/gazebo/get_model_state')
@@ -404,6 +453,7 @@ class PathPlanning:
 
 def run_greedy(P):
 
+    P.reset()
     max_step = P.num_waypoints
 
     i = 0
@@ -420,7 +470,7 @@ def run_greedy(P):
         else:
             # If only one waypoint left, then directly pick that one
             wp_idx = P.waypoints_status.index(0)
-            rospy.loginfo(f"Next waypoint to go is <{wp_idx}>!")
+            rospy.loginfo(f"The last waypoint to go is <{wp_idx}>!")
             done = P.move_to_waypoint(wp_idx)
 
         i += 1
@@ -438,8 +488,7 @@ def run_num_greedy(P, num_episodes = 10):
 
     for i in range(num_episodes):
         # Run the episode
-        ep_i = i + 1
-        rospy.loginfo(f"[mir100_greedy_1] episode <{ep_i}>! (total number of episode: {ep_i})")
+        rospy.loginfo(f"[mir100_greedy_1] episode <{i}>! (total number of episode: {num_episodes})")
         overall_times.append(run_greedy(P))
 
         shortest_t = min(overall_times)
@@ -447,9 +496,12 @@ def run_num_greedy(P, num_episodes = 10):
         episode_shortest_t = index_shortest_t + 1
         rospy.loginfo(f"The minimum time for the [mir100_greedy_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
 
+        # Calculate the average time
+        avg_time = np.mean(overall_times)
+
         # Show overall_times
         plt.figure(figsize = (15,5))
-        plt.title(f"Greedy Method: Overall Time Taken ({ep_i} Episodes)",  fontsize=16, fontweight= 'bold', pad=10)
+        plt.title(f"Greedy Method: Overall Time Taken ({i} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
         plt.xlabel("Episode")
         plt.ylabel("Overall Time (Unit: second)")
         plt.plot(overall_times)

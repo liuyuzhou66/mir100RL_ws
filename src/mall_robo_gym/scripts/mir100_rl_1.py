@@ -13,9 +13,6 @@ import matplotlib.pyplot as plt
 from std_msgs.msg import Header
 from dataclasses import dataclass
 from scipy.spatial.distance import cdist
-# from robo_gym.utils import utils, mir100_utils
-# from robo_gym.envs.mir100.mir100 import Mir100Env
-#from robo_gym.envs.simulation_wrapper import Simulation
 from gazebo_msgs.srv import GetModelState, SetModelState, SpawnModel, DeleteModel
 from gazebo_msgs.msg import ModelState 
 from geometry_msgs.msg import Pose, PoseStamped, Quaternion, Point, PoseWithCovarianceStamped
@@ -32,7 +29,7 @@ sys.path.append("../")
 
 BASE_PATH = Path(os.path.dirname(__file__))
 
-WAYPOINT_POSITIONS = [-13.0,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
+WAYPOINT_POSITIONS = [-13.25,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
 
 WAYPOINT_YAWS = [90, 20, 90, -90, -90, 0]
 
@@ -262,7 +259,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.waypoints_time = [0] * self.num_waypoints
 
         # teleport robot to the starting point
-        rospy.sleep(0.2)
+        rospy.sleep(0.4)
         self.teleport(self.StartPoint_x, self.StartPoint_y)
 
         # Get the time robot start path planning
@@ -661,8 +658,7 @@ def run_num_episodes(env,agent,num_episodes=100):
 
     for i in range(num_episodes):
         # Run the episode
-        ep_i = i + 1
-        rospy.loginfo(f"[mir100_rl_1] episode <{ep_i}>! (total number of episode: {ep_i})")
+        rospy.loginfo(f"[mir100_rl_1] episode <{i}>! (total number of episode: {num_episodes})")
         env,agent,episode_reward = run_episode(env,agent)
 
         # Update the "overall_times"
@@ -692,8 +688,8 @@ def run_num_episodes(env,agent,num_episodes=100):
         ax1[0].plot(rewards)
         ax1[1].plot(overall_times)
         ax1[2].plot(agent.exploration_rate)
-        ax1[0].set_title(f"RL Method: Rewards over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[0].set_title(f"RL Method: Rewards over Training({i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         ax1[2].set_title(f"RL Method: Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
         ax1[0].set_xlabel("Episode")
         ax1[0].set_ylabel("Rewards")
@@ -724,7 +720,7 @@ def run_num_episodes(env,agent,num_episodes=100):
                 loc="center",
                 cellLoc="center",
                 rowLoc="center")
-        ax2.set_title(f"Q Table ({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax2.set_title(f"Q Table ({i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         np.save(results_path / "RL_Qtable.npy", data)
         plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
