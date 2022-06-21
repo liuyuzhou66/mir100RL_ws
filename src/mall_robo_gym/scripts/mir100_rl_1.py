@@ -724,7 +724,7 @@ def run_num_episodes(env,agent,num_episodes=100):
                 loc="center",
                 cellLoc="center",
                 rowLoc="center")
-        ax2.set_title(f"Q Table ({ep_i} Episodes)")
+        ax2.set_title(f"Q Table ({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         np.save(results_path / "RL_Qtable.npy", data)
         plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
