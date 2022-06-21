@@ -668,17 +668,17 @@ def run_num_episodes(env,agent,num_episodes=100):
         # Update the "overall_times"
         overall_times.append(env.overall_time)
         rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
-        np.savetxt(results_path / "overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
+        np.savetxt(results_path / "RL_overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the overall_times to {results_path}!")
         
         # Update the "rewards"
         rewards.append(episode_reward)
         rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
-        np.savetxt(results_path / "rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
+        np.savetxt(results_path / "RL_rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the rewards to {results_path}!")
 
         # Update the "epsilon"
-        np.savetxt(results_path / "exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
+        np.savetxt(results_path / "RL_exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the exploration_rate to {results_path}!")
 
         shortest_t = min(overall_times)
@@ -692,9 +692,9 @@ def run_num_episodes(env,agent,num_episodes=100):
         ax1[0].plot(rewards)
         ax1[1].plot(overall_times)
         ax1[2].plot(agent.exploration_rate)
-        ax1[0].set_title(f"Rewards over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        ax1[1].set_title(f"Overall Time Taken over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        ax1[2].set_title(f"Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[0].set_title(f"RL Method: Rewards over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({ep_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[2].set_title(f"RL Method: Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
         ax1[0].set_xlabel("Episode")
         ax1[0].set_ylabel("Rewards")
         ax1[1].set_xlabel("Episode")
@@ -703,7 +703,7 @@ def run_num_episodes(env,agent,num_episodes=100):
         ax1[2].set_ylabel("Epsilon")
         fig1.tight_layout()
         plt.subplots_adjust(wspace=0,hspace=0.25)
-        plt.savefig(results_path / 'Rewards_and_OverallTime.png', dpi = 200)
+        plt.savefig(results_path / 'RL_Rewards_and_OverallTime.png', dpi = 200)
         #plt.show()
         rospy.loginfo(f"[mir100_rl_1] successfully saves Rewards_and_OverallTime.png to {results_path}!")
 
@@ -725,8 +725,8 @@ def run_num_episodes(env,agent,num_episodes=100):
                 cellLoc="center",
                 rowLoc="center")
         ax2.set_title(f"Q Table ({ep_i} Episodes)")
-        np.save(results_path / "Qtable.npy", data)
-        plt.savefig(results_path / 'Q_table.png', dpi = 200)
+        np.save(results_path / "RL_Qtable.npy", data)
+        plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
         rospy.loginfo(f"[mir100_rl_1] successfully saves Q_table.png to {results_path}!")
 

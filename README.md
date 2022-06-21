@@ -4,6 +4,10 @@
 ```
 clear && roslaunch mall_robo_gym mir100_greedy_1.launch
 ```
+### Plot the result
+#### Without obstacles (10 episodes)
+![Greedy_Rewards_and_OverallTime](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Greedy_OverallTime.png)
+
 ## Reinforcement learning
 ### Start the training
 ```
@@ -29,12 +33,12 @@ cd ~/mir100RL_ws/src/mir_robot/mir_navigation/config/move_base_common_params.yam
 
 ### Plot the result
 #### Without obstacles (248 episodes)
-![Rewards_and_OverallTime](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Rewards_and_OverallTime.png)
+![RL_Rewards_and_OverallTime](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/RL_Rewards_and_OverallTime.png)
 - The minimum time for the [mir100_rl_1] to complete the task is 194.33 seconds in episode <212> with reward (-173.2)!
 - Overall time of training: 17.65 h = 1059 min
 - Training time per episode: 4.27 min
 
 ### Plot the Q table
 #### Without obstacles (248 episodes)
-![Q_table](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/Q_table.png)
+![RL_Q_table](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/RL_Q_table.png)
 

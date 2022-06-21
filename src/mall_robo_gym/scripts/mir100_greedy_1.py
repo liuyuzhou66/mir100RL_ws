@@ -267,19 +267,17 @@ class PathPlanning:
                 wp_y = wp.position.y
                 wp_ori = wp.yaw     # in degree
 
-
-                # total_dist = self.total_distances[wp_i]
-
                 # Calculate the distance between the starting point and the waypoint
                 total_dist = self.calculate_path_distance(mir_x, mir_y, mir_yaw, wp_x, wp_y, wp_ori)
                 self.path_dist.append(total_dist)
             else:
-                # If 
+                # For those points that have already been reached, the distance will be set to positive infinity
                 self.path_dist.append(np.inf)
         
+        rospy.loginfo(f"The list of distances between the [mir100_greedy_1] robot and other waypoints is {self.path_dist}")
         # Get the waypoint index of waypoint with the shortest path distance
-        min_dist = min(self.path_dist)
-        wp_index = self.path_dist.index(min_dist)
+        mini_dist = min(self.path_dist)
+        wp_index = self.path_dist.index(mini_dist)
 
         return wp_index
 
@@ -299,7 +297,6 @@ class PathPlanning:
         start_point.header.frame_id = 'map'
         # rospy.loginfo(f"Start Point: {start_point}")
         # rospy.loginfo("--------------------")
-
 
         goal_point = PoseStamped()
 
@@ -418,10 +415,12 @@ def run_greedy(P):
         # Pick a waypoint which has shortest distance
         if np.sum(P.waypoints_status) < (max_step - 1):
             wp_idx = P.pick_waypoint()
+            rospy.loginfo(f"Next waypoint to go is <{wp_idx}>!")
             done = P.move_to_waypoint(wp_idx)
         else:
             # If only one waypoint left, then directly pick that one
             wp_idx = P.waypoints_status.index(0)
+            rospy.loginfo(f"Next waypoint to go is <{wp_idx}>!")
             done = P.move_to_waypoint(wp_idx)
 
         i += 1
@@ -430,7 +429,33 @@ def run_greedy(P):
 
     return P.overall_time
 
+def run_num_greedy(P, num_episodes = 10):
+    overall_times = []
 
+    results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
+    if not results_path.exists():
+        results_path.mkdir()
+
+    for i in range(num_episodes):
+        # Run the episode
+        ep_i = i + 1
+        rospy.loginfo(f"[mir100_greedy_1] episode <{ep_i}>! (total number of episode: {ep_i})")
+        overall_times.append(run_greedy(P))
+
+        shortest_t = min(overall_times)
+        index_shortest_t = overall_times.index(shortest_t)
+        episode_shortest_t = index_shortest_t + 1
+        rospy.loginfo(f"The minimum time for the [mir100_greedy_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
+
+        # Show overall_times
+        plt.figure(figsize = (15,5))
+        plt.title(f"Greedy Method: Overall Time Taken ({ep_i} Episodes)",  fontsize=16, fontweight= 'bold', pad=10)
+        plt.xlabel("Episode")
+        plt.ylabel("Overall Time (Unit: second)")
+        plt.plot(overall_times)
+        plt.savefig(results_path / 'Greedy_OverallTime.png', dpi = 200)
+        rospy.loginfo(f"[mir100_greedy_1] successfully saves Greedy_OverallTime.png to {results_path}!")
+    
 
 if __name__ == u'__main__':
     rospy.init_node('mir100_classic_1', anonymous=True)
@@ -446,7 +471,8 @@ if __name__ == u'__main__':
     
     planning = PathPlanning()
 
-    run_greedy(planning)
+    num_episodes = 10
+    run_num_greedy(planning, num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
