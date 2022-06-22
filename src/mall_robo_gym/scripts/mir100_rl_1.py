@@ -650,7 +650,6 @@ def run_num_episodes(env,agent,num_episodes=100):
     # Store the rewards
     rewards = []
     overall_times = []
-    num_training = env.num_waypoints * num_episodes
     
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
@@ -695,7 +694,7 @@ def run_num_episodes(env,agent,num_episodes=100):
         ax1[0].set_ylabel("Rewards")
         ax1[1].set_xlabel("Episode")
         ax1[1].set_ylabel("Overall Time (Unit: second)")
-        ax1[2].set_xlabel(f"Number of Training({num_training} Times)")
+        ax1[2].set_xlabel(f"Number of Training")
         ax1[2].set_ylabel("Epsilon")
         fig1.tight_layout()
         plt.subplots_adjust(wspace=0,hspace=0.25)
