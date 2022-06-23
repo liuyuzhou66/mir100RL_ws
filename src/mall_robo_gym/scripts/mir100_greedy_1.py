@@ -8,6 +8,7 @@ from tracemalloc import stop
 import rospy, roslib
 import threading
 from pathlib import Path
+from statistics import mean
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -182,6 +183,7 @@ class PathPlanning:
 
         self.path_dist = []
         self.waypoints_status = [0] * self.num_waypoints
+
         # Initialize the overall time to 0
         self.overall_time = 0
 
@@ -488,7 +490,8 @@ def run_num_greedy(P, num_episodes = 10):
     for i in range(num_episodes):
         # Run the episode
         rospy.loginfo(f"[mir100_greedy_1] episode <{i}>! (total number of episode: {num_episodes})")
-        overall_times.append(run_greedy(P))
+        epi_time = run_greedy(P)
+        overall_times.append(epi_time)
 
         shortest_t = min(overall_times)
         index_shortest_t = overall_times.index(shortest_t)
@@ -496,11 +499,11 @@ def run_num_greedy(P, num_episodes = 10):
         rospy.loginfo(f"The minimum time for the [mir100_greedy_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
 
         # Calculate the average time
-        avg_time = np.mean(overall_times)
+        avg_time = mean(overall_times)
 
         # Show overall_times
         plt.figure(figsize = (15,5))
-        plt.title(f"Greedy Method: Overall Time Taken ({i} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
+        plt.title(f"Greedy Method: Overall Time Taken ({i+1} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
         plt.xlabel("Episode")
         plt.ylabel("Overall Time (Unit: second)")
         plt.plot(overall_times)
@@ -509,7 +512,7 @@ def run_num_greedy(P, num_episodes = 10):
     
 
 if __name__ == u'__main__':
-    rospy.init_node('mir100_classic_1', anonymous=True)
+    rospy.init_node('mir100_greedy_1', anonymous=True)
 
     rospy.loginfo('sleep for 2 second')
     time.sleep(2)

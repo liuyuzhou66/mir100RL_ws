@@ -7,6 +7,7 @@ import time
 import rospy 
 import threading
 from pathlib import Path
+from statistics import mean
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -24,11 +25,9 @@ import actionlib
 import move_base_msgs.msg
 import geometry_msgs.msg
 
-BASE_PATH = Path(os.path.dirname(__file__))
-results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
-if not results_path.exists():
-    results_path.mkdir()
+np.set_printoptions(linewidth=120)
 
+BASE_PATH = Path(os.path.dirname(__file__))
 
 WAYPOINT_POSITIONS = [-13.25,10.0,0, -5.0,10.0,0, 9.3,12.3,0, 12.0,-12.0,0, -4.0,-10.5,0, -15.3,-10.0,0]
 
@@ -146,8 +145,10 @@ class Waypoint_Label:
 
 class DynamicObstacleNavigationMir100Test:
     def __init__(self, **kwargs):
+
         self._name = 'mir100_rl_test'
-        rospy.loginfo(f'[{self._name}] starting node <DynamicObstacleNavigationMir100Sim>')
+        rospy.loginfo(f'[{self._name}] starting node <DynamicObstacleNavigationMir100Test>')
+        # Create a list to store all the waypoints
         self.waypoints = []
         self.waypoints += [
             Waypoint(Point(*WAYPOINT_POSITIONS[i*3:(i*3)+3]),
@@ -155,41 +156,33 @@ class DynamicObstacleNavigationMir100Test:
             )
             for i in range(len(WAYPOINT_YAWS))]
 
+        # Number of waypoints
+        self.num_waypoints = len(self.waypoints)
+
         # Create a dictionary to store the spawn status of waypoint labels
         self.waypoint_labels = {}
         for j in range(len(WAYPOINT_YAWS)):
             wp_name = f"Waypoint_{j}"
             sphere = Waypoint_Label(wp_name)
             self.waypoint_labels[wp_name] = sphere
-
-        # Set the robot initial position to starting point(0, -38.5, 0)
-        self.all_points = [START_POINT]
-        self.all_points += self.waypoints
-        # self.all_points.append(START_POINT)
-
         self.StartPoint_x = START_POINT.position.x
         self.StartPoint_y = START_POINT.position.y
         self.StartPoint_z = START_POINT.position.z
         self.StartPoint_ori = quaternion_from_euler(0, 0, np.deg2rad(START_POINT.yaw))
 
-        # Number of all_points, including starting point
-        self.num_all_points = len(self.all_points)
+        self.waypoints_status = [0] * self.num_waypoints
 
-        # Number of waypoints
-        self.num_waypoints = len(self.waypoints)
-
-        # Initialize the action_space and state_space
-        self.state_space = self.num_all_points  # state_space includes all points
-        self.action_space = self.num_waypoints  # action_space includes waypoints only  
-
-        # Initialize
-        self.visited_points = []    # The index of visited points, the index of starting point is "0"
-        self.waypoints_time = []     # Time since waypoints have been reached
-        self.overall_time = None    # Time since episode starts
+        # Initialize the overall time to 0
+        self.overall_time = 0
+        
+        # Get the time robot start path planning
+        time = rospy.get_rostime()
+        self.time_start = time.to_sec()
+        rospy.loginfo(f"[{self._name}] starts timing at [{self.time_start}]")
 
     def reset(self):
         rospy.loginfo(f"[{self._name}] reset!")
-
+        start_point_index = 0
         # Reset the waypoint status (1 is reached, 0 is not reached)
         self.waypoints_status = [0] * self.num_waypoints
 
@@ -208,6 +201,8 @@ class DynamicObstacleNavigationMir100Test:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
+        
+        return start_point_index
 
 
     def move_to_waypoint(self, wp_idx):
@@ -358,11 +353,10 @@ class DynamicObstacleNavigationMir100Test:
 def run_episode(env,agent):
     
     rospy.loginfo("[mir100_rl_test] starts a new episode!")
-    
+    s = env.reset()
     # The initial state of the robot is start_point_index
-    s = 0
     agent.reset_memory()
-    env.reset()
+    
     # Max steps per episode (6 steps for 6 waypoints)
     max_step = env.num_waypoints
     
@@ -381,12 +375,9 @@ def run_episode(env,agent):
         # Move to the waypoint
         done = env.move_to_waypoint(a)
         
-        # Take the action, and get the reward from environment
-        s_next = a
-        rospy.loginfo(f"for action ({a}), [mir100_rl_test]'s new state: {s_next}; episode done: {done}!")
-        
         # Update the caches
-        s = s_next
+        s = a + 1
+        rospy.loginfo(f"for action ({a}), [mir100_rl_test]'s new state: {s}; episode done: {done}!")
         rospy.loginfo(f"[mir100_rl_test]'s step num.<{i}> is finished!")
         
         # If the episode is terminated
@@ -394,22 +385,22 @@ def run_episode(env,agent):
         if done:
             break
             
-    return env,agent
+    return env.overall_time
 
 class QAgent:
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.reset_memory()
+        results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
 
         # Load Q table
         self.Q = np.load(results_path / 'RL_Qtable.npy')
-
         rospy.loginfo("----type----")
         rospy.loginfo(type(self.Q))
         rospy.loginfo("----shape----")
         rospy.loginfo(self.Q.shape)
         rospy.loginfo("----data----")
-        rospy.loginfo(self.Q)
+        rospy.loginfo(f"Print Qtable: \n{self.Q}")
 
     def act(self,s):
         # Get Q Vector
@@ -440,25 +431,25 @@ def run_num_episode(env, agent, num_episodes = 10):
     for i in range(num_episodes):
         # Run the episode
         rospy.loginfo(f"[mir100_rl_test] episode <{i}>! (total number of episode: {num_episodes})")
-        overall_times.append(run_episode(env, agent))
-
+        epi_time = run_episode(env, agent)
+        overall_times.append(epi_time)
+        
         shortest_t = min(overall_times)
         index_shortest_t = overall_times.index(shortest_t)
         episode_shortest_t = index_shortest_t + 1
         rospy.loginfo(f"The minimum time for the [mir100_rl_test] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
 
         # Calculate the average time
-        avg_time = np.mean(overall_times)
+        avg_time = mean(overall_times)
 
         # Show overall_times
         plt.figure(figsize = (15,5))
-        plt.title(f"Greedy Method: Overall Time Taken ({i} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
+        plt.title(f"RL Method: Overall Time Taken ({i+1} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
         plt.xlabel("Episode")
         plt.ylabel("Overall Time (Unit: second)")
         plt.plot(overall_times)
-        plt.savefig(results_path / 'Greedy_OverallTime.png', dpi = 200)
-        rospy.loginfo(f"[mir100_rl_test] successfully saves Greedy_OverallTime.png to {results_path}!")
-
+        plt.savefig(results_path / 'RL_OverallTime.png', dpi = 200)
+        rospy.loginfo(f"[mir100_rl_test] successfully saves RL_OverallTime.png to {results_path}!")
 
 
 
@@ -474,8 +465,8 @@ if __name__ == u'__main__':
     unpause_physics_client(EmptyRequest())
     rospy.loginfo('should be unpaused')
     
-    env = DynamicObstacleNavigationMir100Test
-    agent = QAgent
+    env = DynamicObstacleNavigationMir100Test()
+    agent = QAgent()
 
     num_episodes = 10
     run_num_episode(env, agent, num_episodes)
