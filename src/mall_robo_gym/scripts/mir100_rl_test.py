@@ -357,7 +357,7 @@ class DynamicObstacleNavigationMir100Test:
 
 def run_episode(env,agent):
     
-    rospy.loginfo("[mir100_rl_1] starts a new episode!")
+    rospy.loginfo("[mir100_rl_test] starts a new episode!")
     
     # The initial state of the robot is start_point_index
     s = 0
@@ -376,18 +376,18 @@ def run_episode(env,agent):
 
         # Choose an action
         a = agent.act(s)
-        rospy.loginfo(f"[mir100_rl_1] picks an action ({a})!")
+        rospy.loginfo(f"[mir100_rl_test] picks an action ({a})!")
 
         # Move to the waypoint
         done = env.move_to_waypoint(a)
         
         # Take the action, and get the reward from environment
         s_next = a
-        rospy.loginfo(f"for action ({a}), [mir100_rl_1]'s new state: {s_next}; episode done: {done}!")
+        rospy.loginfo(f"for action ({a}), [mir100_rl_test]'s new state: {s_next}; episode done: {done}!")
         
         # Update the caches
         s = s_next
-        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
+        rospy.loginfo(f"[mir100_rl_test]'s step num.<{i}> is finished!")
         
         # If the episode is terminated
         i += 1
@@ -439,13 +439,13 @@ def run_num_episode(env, agent, num_episodes = 10):
 
     for i in range(num_episodes):
         # Run the episode
-        rospy.loginfo(f"[mir100_greedy_1] episode <{i}>! (total number of episode: {num_episodes})")
+        rospy.loginfo(f"[mir100_rl_test] episode <{i}>! (total number of episode: {num_episodes})")
         overall_times.append(run_episode(env, agent))
 
         shortest_t = min(overall_times)
         index_shortest_t = overall_times.index(shortest_t)
         episode_shortest_t = index_shortest_t + 1
-        rospy.loginfo(f"The minimum time for the [mir100_greedy_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
+        rospy.loginfo(f"The minimum time for the [mir100_rl_test] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
 
         # Calculate the average time
         avg_time = np.mean(overall_times)
@@ -457,7 +457,7 @@ def run_num_episode(env, agent, num_episodes = 10):
         plt.ylabel("Overall Time (Unit: second)")
         plt.plot(overall_times)
         plt.savefig(results_path / 'Greedy_OverallTime.png', dpi = 200)
-        rospy.loginfo(f"[mir100_greedy_1] successfully saves Greedy_OverallTime.png to {results_path}!")
+        rospy.loginfo(f"[mir100_rl_test] successfully saves Greedy_OverallTime.png to {results_path}!")
 
 
 

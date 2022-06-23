@@ -259,7 +259,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.waypoints_time = [0] * self.num_waypoints
 
         # teleport robot to the starting point
-        rospy.sleep(1.2)
+        rospy.sleep(1.0)
         self.teleport(self.StartPoint_x, self.StartPoint_y)
 
         # Get the time robot start path planning

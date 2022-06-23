@@ -13,6 +13,10 @@ clear && roslaunch mall_robo_gym mir100_greedy_1.launch
 ```
 clear && roslaunch mall_robo_gym mir100_rl_1.launch
 ```
+### Test the training outcome
+```
+clear && roslaunch mall_robo_gym mir100_rl_test.launch
+```
 ## Path to change the time of controller_patience and planner_patience
 ```
 cd ~/mir100RL_ws/src/mir_robot/mir_navigation/config/move_base_common_params.yaml
