@@ -186,9 +186,6 @@ class DynamicObstacleNavigationMir100Test:
         # Initialize
         self.visited_points = []    # The index of visited points, the index of starting point is "0"
         self.waypoints_time = []     # Time since waypoints have been reached
-        """
-        self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
-        """
         self.overall_time = None    # Time since episode starts
 
 
@@ -343,9 +340,10 @@ def run_episode(env,agent):
     
     # The initial state of the robot is start_point_index
     s = 0
+    agent.reset_memory()
 
     # Max steps per episode (6 steps for 6 waypoints)
-    max_step = 6
+    max_step = env.num_waypoints
     
     i = 0
     while i < max_step:
@@ -378,9 +376,10 @@ def run_episode(env,agent):
     return env,agent
 
 class QAgent:
-    def __init__(self,**kwargs):
-        self.wp_memory = []
-        
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.reset_memory()
+
         # Load Q table
         self.Q = np.load(results_path / 'RL_Qtable.npy')
 
@@ -405,6 +404,41 @@ class QAgent:
 
     def wp_arrived(self,wp_index):
         self.wp_memory.append(wp_index)
+    
+    def reset_memory(self):
+        self.wp_memory = []
+
+
+def run_num_episode(env, agent, num_episodes = 10):
+    overall_times = []
+
+    results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
+    if not results_path.exists():
+        results_path.mkdir()
+
+    for i in range(num_episodes):
+        # Run the episode
+        rospy.loginfo(f"[mir100_greedy_1] episode <{i}>! (total number of episode: {num_episodes})")
+        overall_times.append(run_episode(env, agent))
+
+        shortest_t = min(overall_times)
+        index_shortest_t = overall_times.index(shortest_t)
+        episode_shortest_t = index_shortest_t + 1
+        rospy.loginfo(f"The minimum time for the [mir100_greedy_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}>!")
+
+        # Calculate the average time
+        avg_time = np.mean(overall_times)
+
+        # Show overall_times
+        plt.figure(figsize = (15,5))
+        plt.title(f"Greedy Method: Overall Time Taken ({i} Episodes), Average time: {avg_time}",  fontsize=16, fontweight= 'bold', pad=10)
+        plt.xlabel("Episode")
+        plt.ylabel("Overall Time (Unit: second)")
+        plt.plot(overall_times)
+        plt.savefig(results_path / 'Greedy_OverallTime.png', dpi = 200)
+        rospy.loginfo(f"[mir100_greedy_1] successfully saves Greedy_OverallTime.png to {results_path}!")
+
+
 
 
 if __name__ == u'__main__':
@@ -422,7 +456,8 @@ if __name__ == u'__main__':
     env = DynamicObstacleNavigationMir100Test
     agent = QAgent
 
-    run_episode(env,agent)
+    num_episodes = 10
+    run_num_episode(env, agent, num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
