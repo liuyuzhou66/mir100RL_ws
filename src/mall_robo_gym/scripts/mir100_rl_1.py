@@ -396,17 +396,6 @@ class DynamicObstacleNavigationMir100Sim:
         self._get_robot_position()
 
         # Update the elapsed time for reaching each waypoint
-        """
-        for i in range(self.num_waypoints):
-            if self.waypoints_status[i] == 0:
-                time = rospy.get_rostime()
-                time_s = time.to_sec()
-                wp_time = time_s - self.waypoint_time_start
-                self.waypoints_time[i] = round(wp_time, 2)
-                rospy.loginfo(f"[{self._name}] waypoints_time[{i}] = {self.waypoints_time[i]}, done!")
-        rospy.loginfo(f"[{self._name}] updates waypoints_time, done!")
-        rospy.loginfo(f"[{self._name}] waypoints_time taken: {self.waypoints_time}")
-        """
         if self.waypoints_status[action] == 0:
             time = rospy.get_rostime()
             time_s = time.to_sec()
@@ -646,18 +635,56 @@ class DeliveryQAgent(QAgent):
 
 
 
-def run_num_episodes(env,agent,num_episodes=100):
-    # Store the rewards
-    rewards = []
-    overall_times = []
-    
+def run_num_episodes(env, agent, num_episodes=100, external_data=False):
+
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
 
-    for i in range(num_episodes):
+    rewards = []
+    overall_times = []
+    rest_num_episode = num_episodes
+    
+    # Store the rewards by empty list of input from externally
+    if external_data:
+        # Read rewards
+        rewards = []
+        with open(results_path / "RL_rewards.txt") as f:
+            for r in f.readlines():
+                rewards.append(float(r))
+        
+        # Read overall_times
+        overall_times = []
+        with open(results_path / "RL_overall_times.txt") as f:
+            for t in f.readlines():
+                overall_times.append(float(t))
+
+        # Read exploration rate
+        exp_rate = []
+        with open(results_path / "RL_exploration_rate.txt") as f:
+            for e in f.readlines():
+                exp_rate.append(float(e))
+
+        agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
+        agent.exploration_rate = exp_rate
+
+        # Read the Q table
+        initial_q_table = np.load(results_path / "RL_Qtable.npy")
+        agent.Q = initial_q_table
+
+        cur_num_episode = len(rewards)
+        rest_num_episode = num_episodes - cur_num_episode
+
+    
+    for i in range(rest_num_episode):
+
+        if external_data:
+            cur_i = i + cur_num_episode
+        else:
+            cur_i = i
+
         # Run the episode
-        rospy.loginfo(f"[mir100_rl_1] episode <{i}>! (total number of episode: {num_episodes})")
+        rospy.loginfo(f"[mir100_rl_1] episode <{cur_i}>! (total number of episode: {num_episodes})")
         env,agent,episode_reward = run_episode(env,agent)
 
         # Update the "overall_times"
@@ -676,19 +703,21 @@ def run_num_episodes(env,agent,num_episodes=100):
         np.savetxt(results_path / "RL_exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the exploration_rate to {results_path}!")
 
+        longest_t = max(overall_times)
         shortest_t = min(overall_times)
         index_shortest_t = overall_times.index(shortest_t)
         episode_shortest_t = index_shortest_t + 1
         shortest_t_reward = rewards[index_shortest_t]
         rospy.loginfo(f"The minimum time for the [mir100_rl_1] to complete the task is {shortest_t} seconds in episode <{episode_shortest_t}> with reward ({shortest_t_reward})!")
+        rospy.loginfo(f"The maximum time for the [mir100_rl_1] to complete the task is {longest_t} seconds!")
 
         # Show rewards, overall time, and exploration rate(epsilon)
         fig1, ax1 = plt.subplots(3, 1, figsize=(15,15))
         ax1[0].plot(rewards)
         ax1[1].plot(overall_times)
         ax1[2].plot(agent.exploration_rate)
-        ax1[0].set_title(f"RL Method: Rewards over Training({i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[0].set_title(f"RL Method: Rewards over Training({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         ax1[2].set_title(f"RL Method: Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
         ax1[0].set_xlabel("Episode")
         ax1[0].set_ylabel("Rewards")
@@ -719,7 +748,7 @@ def run_num_episodes(env,agent,num_episodes=100):
                 loc="center",
                 cellLoc="center",
                 rowLoc="center")
-        ax2.set_title(f"Q Table ({i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax2.set_title(f"Q Table ({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         np.save(results_path / "RL_Qtable.npy", data)
         plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
@@ -759,7 +788,7 @@ if __name__ == u'__main__':
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
     num_episodes = 800
-    run_num_episodes(env,agent,num_episodes)
+    run_num_episodes(env,agent,num_episodes,external_data=True)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
