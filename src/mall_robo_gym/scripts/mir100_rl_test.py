@@ -144,7 +144,6 @@ class Waypoint_Label:
     def spawn_red(self, x, y):
         self._spawn(x, y, 'Red')
 
-
 class DynamicObstacleNavigationMir100Test:
     def __init__(self, **kwargs):
         self._name = 'mir100_rl_test'
@@ -187,6 +186,28 @@ class DynamicObstacleNavigationMir100Test:
         self.visited_points = []    # The index of visited points, the index of starting point is "0"
         self.waypoints_time = []     # Time since waypoints have been reached
         self.overall_time = None    # Time since episode starts
+
+    def reset(self):
+        rospy.loginfo(f"[{self._name}] reset!")
+
+        # Reset the waypoint status (1 is reached, 0 is not reached)
+        self.waypoints_status = [0] * self.num_waypoints
+
+        # teleport robot to the starting point
+        rospy.sleep(1.0)
+        self.teleport(self.StartPoint_x, self.StartPoint_y)
+
+        # Get the time robot start path planning
+        time = rospy.get_rostime()
+        self.time_start = time.to_sec()
+        rospy.loginfo(f"[{self._name}] The time to reset time_start is [{self.time_start}]")
+
+        # Spawn blue sphere to waypoint by default
+        for j in range(len(WAYPOINT_YAWS)):
+            if self.waypoints_status[j] == 0:
+                wp_name = f"Waypoint_{j}"
+                sphere = self.waypoint_labels[wp_name]
+                sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
 
     def move_to_waypoint(self, wp_idx):
@@ -341,7 +362,7 @@ def run_episode(env,agent):
     # The initial state of the robot is start_point_index
     s = 0
     agent.reset_memory()
-
+    env.reset()
     # Max steps per episode (6 steps for 6 waypoints)
     max_step = env.num_waypoints
     
