@@ -1,0 +1,8 @@
+<?xml version="1.0"?>
+
+<launch>
+    <node pkg="mall_robo_gym" type="mir100_rl_test.py" name="mir100_rl_test" output="screen" />
+
+    <include file="$(find new_mir_gazebo)/launch/sim_mall_world.launch" />
+   
+</launch>
