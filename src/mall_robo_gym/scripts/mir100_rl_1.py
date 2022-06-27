@@ -788,7 +788,7 @@ if __name__ == u'__main__':
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
     num_episodes = 800
-    run_num_episodes(env,agent,num_episodes,external_data=True)
+    run_num_episodes(env,agent,num_episodes,external_data=False)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
