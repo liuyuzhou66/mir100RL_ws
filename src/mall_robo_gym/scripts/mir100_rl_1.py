@@ -231,7 +231,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 900         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
+        self.max_time = 400         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -241,12 +241,14 @@ class DynamicObstacleNavigationMir100Sim:
         if self.initialize_Q_table_by_time:
             self._generate_q_values()
 
+        self.restart_episode = False
         # Restart the environment on a new episode. Return the start_point_index
         # self.reset()
 
 
     def reset(self):
         rospy.loginfo(f"[{self._name}] reset!")
+        self.restart_episode = False
         # visited points index placeholder (visited_points is an array of the index of visited points)
         ## Equal to the state memory
         start_point_index = 0
@@ -451,6 +453,16 @@ class DynamicObstacleNavigationMir100Sim:
     def move_base_watcher_thread(self, goal_pose):
         while True:
             rospy.sleep(1)
+
+            # Update the oveall time since agent left START_POINT
+            time = rospy.get_rostime()
+            tim_s = time.to_sec()
+            o_time = tim_s - self.time_start
+            self.overall_time = round(o_time, 2)
+            # If maximum time exceed, restart this episode
+            if self.overall_time >= self.max_time:
+                self.restart_episode = True
+
             x, y = self._get_robot_position()
             _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
             if _dist < 0.5:
@@ -584,6 +596,13 @@ def run_episode(env,agent):
         s_next,r,done,info = env.step(a)
         rospy.loginfo(f"for action ({a}), [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
         
+        # If there is a simulation error, restart this episode
+        if env.restart_episode:
+            s = env.reset()
+            agent.reset_memory()
+            episode_reward = 0
+            i = 0
+
         # For each action, use the Bellman equation to update our knowledge in the existing Q-table
         agent.train(s,a,r,s_next)
         
