@@ -595,13 +595,6 @@ def run_episode(env,agent):
         # Take the action, and get the reward from environment
         s_next,r,done,info = env.step(a)
         rospy.loginfo(f"for action ({a}), [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
-        
-        # If there is a simulation error, restart this episode
-        if env.restart_episode:
-            s = env.reset()
-            agent.reset_memory()
-            episode_reward = 0
-            i = 0
 
         # For each action, use the Bellman equation to update our knowledge in the existing Q-table
         agent.train(s,a,r,s_next)
@@ -611,8 +604,17 @@ def run_episode(env,agent):
         s = s_next
         rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
         
+        # If there is a simulation error, restart this episode
+        if env.restart_episode:
+            s = env.reset()
+            agent.reset_memory()
+            episode_reward = 0
+            i = 0
+        else:
+            # If not, continue
+            i += 1
+        
         # If the episode is terminated
-        i += 1
         if done:
             break
             
