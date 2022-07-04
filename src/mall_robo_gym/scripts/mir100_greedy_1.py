@@ -489,7 +489,7 @@ def run_num_greedy(P, num_episodes = 10):
 
     for i in range(num_episodes):
         # Run the episode
-        rospy.loginfo(f"[mir100_greedy_1] episode <{i}>! (total number of episode: {num_episodes})")
+        rospy.loginfo(f"[mir100_greedy_1] episode <{i+1}>! (total number of episode: {num_episodes})")
         epi_time = run_greedy(P)
         overall_times.append(epi_time)
 

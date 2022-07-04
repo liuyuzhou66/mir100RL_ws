@@ -229,7 +229,7 @@ class DynamicObstacleNavigationMir100Test:
         _dist = dist(
             self.mir100_pos_x, self.mir100_pos_y, 
             self.waypoints[wp_idx].position.x, self.waypoints[wp_idx].position.y)
-        if _dist < 0.5: # distance of the waypoint to the robot < 0.5 m
+        if _dist < 0.6: # distance of the waypoint to the robot < 0.6 m
             self.waypoints_status[wp_idx] = 1
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
@@ -305,7 +305,7 @@ class DynamicObstacleNavigationMir100Test:
             rospy.sleep(1)
             x, y, yaw = self._get_robot_position()
             _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
-            if _dist < 0.5:
+            if _dist < 0.6:
                 rospy.loginfo(f'Close to waypoint, [{self._name}] is considered to have reached the waypoint, distance to waypoint: {_dist}')
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
@@ -394,7 +394,7 @@ class QAgent:
         results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
 
         # Load Q table
-        self.Q = np.load(results_path / 'RL_Qtable.npy')
+        self.Q = np.load(results_path / 'RL_Qtable/RL_Qtable.npy')
         rospy.loginfo("----type----")
         rospy.loginfo(type(self.Q))
         rospy.loginfo("----shape----")
@@ -430,7 +430,7 @@ def run_num_episode(env, agent, num_episodes = 10):
 
     for i in range(num_episodes):
         # Run the episode
-        rospy.loginfo(f"[mir100_rl_test] episode <{i}>! (total number of episode: {num_episodes})")
+        rospy.loginfo(f"[mir100_rl_test] episode <{i+1}>! (total number of episode: {num_episodes})")
         epi_time = run_episode(env, agent)
         overall_times.append(epi_time)
         

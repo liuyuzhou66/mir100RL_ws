@@ -231,7 +231,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 380         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
+        self.max_time = 400         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -271,6 +271,7 @@ class DynamicObstacleNavigationMir100Sim:
 
         # Reset the overall time to 0
         self.overall_time = 0
+        rospy.loginfo(f"[{self._name}] reset overall_time = 0")
 
         # Spawn blue sphere to waypoint by default
         for j in range(len(WAYPOINT_YAWS)):
@@ -351,11 +352,11 @@ class DynamicObstacleNavigationMir100Sim:
             reward += additional_reward
             """
             
-        # Episode end if maximum time is reached
-        if self.overall_time >= self.max_time:
-            done = True
-            info['final_status'] = 'max_time_exceeded'
-            rospy.loginfo(f"[{self._name}] max_time_exceeded!")
+        # # Episode end if maximum time is reached
+        # if self.overall_time >= self.max_time:
+        #     done = True
+        #     info['final_status'] = 'max_time_exceeded'
+        #     rospy.loginfo(f"[{self._name}] max_time_exceeded!")
         
         return new_state, reward, done, info
 
@@ -412,7 +413,7 @@ class DynamicObstacleNavigationMir100Sim:
         _dist = dist(
             self.mir100_pos_x, self.mir100_pos_y, 
             self.waypoints[action].position.x, self.waypoints[action].position.y)
-        if _dist < 0.5: # distance of the waypoint to the robot < 0.5 m
+        if _dist < 0.8: # distance of the waypoint to the robot < 0.8 m
             self.waypoints_status[action] = 1
         rospy.loginfo(f"[{self._name}] updates waypoints_status, done!")
         rospy.loginfo(f"[{self._name}]'s current waypoints_status: {self.waypoints_status}")
@@ -462,10 +463,14 @@ class DynamicObstacleNavigationMir100Sim:
             # If maximum time exceed, restart this episode
             if self.overall_time >= self.max_time:
                 self.restart_episode = True
+                rospy.loginfo(f"[mir100_rl_1] needs to restart episode due to maximum time exceed!")
+                if hasattr(self, 'action_client'):
+                    self.action_client.cancel_all_goals()
+                return
 
             x, y = self._get_robot_position()
             _dist = dist(x, y, goal_pose.position.x, goal_pose.position.y)
-            if _dist < 0.5:
+            if _dist < 0.6:
                 rospy.loginfo(f'Close to waypoint, [{self._name}] is considered to have reached the waypoint, distance to waypoint: {_dist}')
                 if hasattr(self, 'action_client'):
                     self.action_client.cancel_all_goals()
@@ -566,7 +571,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 #----------------------------------------------------------------------------------------#
 
-def run_episode(env,agent,current_episode):
+def run_episode(env,agent,current_episode,results_path):
     
     rospy.loginfo("[mir100_rl_1] starts a new episode!")
     
@@ -595,14 +600,6 @@ def run_episode(env,agent,current_episode):
         # Take the action, and get the reward from environment
         s_next,r,done,info = env.step(a)
         rospy.loginfo(f"for action ({a}), [mir100_rl_1]'s new state: {s_next}; reward: {r}; episode done: {done}; info: {info}!")
-
-        # For each action, use the Bellman equation to update our knowledge in the existing Q-table
-        agent.train(s,a,r,s_next)
-        
-        # Update the caches
-        episode_reward += r # The total reward of each episode
-        s = s_next
-        rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
         
         # If there is a simulation error, restart this episode
         if env.restart_episode:
@@ -610,8 +607,31 @@ def run_episode(env,agent,current_episode):
             s = env.reset()
             agent.reset_memory()
             episode_reward = 0
+            rospy.loginfo(f"[mir100_rl_1] reset episode_reward = 0, done!")
+
+            # Read the previous Q table
+            initial_q_table = np.load(results_path / f"RL_Qtable/RL_Qtable_{current_episode - 1}.npy")
+            agent.Q = initial_q_table
+            rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s Q_table, done!")
+
+            # Read the previous episode's exploration rate
+            exp_rate = []
+            with open(results_path / f"RL_exploration_rate/RL_exploration_rate_{current_episode - 1}.txt") as f:
+                for e in f.readlines():
+                    exp_rate.append(float(e))
+            agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
+            agent.exploration_rate = exp_rate
+            rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s exploration_rate, done!")
+
             i = 0
+
         else:
+            # For each action, use the Bellman equation to update our knowledge in the existing Q-table
+            agent.train(s,a,r,s_next)
+            # Update the caches
+            episode_reward += r # The total reward of each episode
+            s = s_next
+            rospy.loginfo(f"[mir100_rl_1]'s step num.<{i}> is finished!")
             # If not, continue
             i += 1
         
@@ -671,19 +691,19 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     if external_data:
         # Read rewards
         rewards = []
-        with open(results_path / "RL_rewards.txt") as f:
+        with open(results_path / "RL_rewards/RL_rewards.txt") as f:
             for r in f.readlines():
                 rewards.append(float(r))
         
         # Read overall_times
         overall_times = []
-        with open(results_path / "RL_overall_times.txt") as f:
+        with open(results_path / "RL_overall_times/RL_overall_times.txt") as f:
             for t in f.readlines():
                 overall_times.append(float(t))
 
         # Read exploration rate
         exp_rate = []
-        with open(results_path / "RL_exploration_rate.txt") as f:
+        with open(results_path / "RL_exploration_rate/RL_exploration_rate.txt") as f:
             for e in f.readlines():
                 exp_rate.append(float(e))
 
@@ -691,7 +711,7 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         agent.exploration_rate = exp_rate
 
         # Read the Q table
-        initial_q_table = np.load(results_path / "RL_Qtable.npy")
+        initial_q_table = np.load(results_path / "RL_Qtable/RL_Qtable.npy")
         agent.Q = initial_q_table
 
         cur_num_episode = len(rewards)
@@ -701,28 +721,28 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     for i in range(rest_num_episode):
 
         if external_data:
-            cur_i = i + cur_num_episode
+            cur_i = i + cur_num_episode + 1
         else:
-            cur_i = i
+            cur_i = i + 1
 
         # Run the episode
         rospy.loginfo(f"[mir100_rl_1] episode <{cur_i}>! (total number of episode: {num_episodes})")
-        env,agent,episode_reward = run_episode(env,agent,cur_i)
+        env,agent,episode_reward = run_episode(env,agent,cur_i,results_path)
 
         # Update the "overall_times"
         overall_times.append(env.overall_time)
         rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
-        np.savetxt(results_path / "RL_overall_times.txt", np.array(overall_times), fmt='%f',delimiter=',')
+        np.savetxt(results_path / f"RL_overall_times/RL_overall_times_{cur_i}.txt", np.array(overall_times), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the overall_times to {results_path}!")
         
         # Update the "rewards"
         rewards.append(episode_reward)
         rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
-        np.savetxt(results_path / "RL_rewards.txt", np.array(rewards), fmt='%f',delimiter=',')
+        np.savetxt(results_path / f"RL_rewards/RL_rewards_{cur_i}.txt", np.array(rewards), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the rewards to {results_path}!")
 
         # Update the "epsilon"
-        np.savetxt(results_path / "RL_exploration_rate.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
+        np.savetxt(results_path / f"RL_exploration_rate/RL_exploration_rate_{cur_i}.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the exploration_rate to {results_path}!")
 
         longest_t = max(overall_times)
@@ -738,8 +758,8 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         ax1[0].plot(rewards)
         ax1[1].plot(overall_times)
         ax1[2].plot(agent.exploration_rate)
-        ax1[0].set_title(f"RL Method: Rewards over Training({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[0].set_title(f"RL Method: Rewards over Training({cur_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        ax1[1].set_title(f"RL Method: Overall Time Taken over Training({cur_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
         ax1[2].set_title(f"RL Method: Exploration Rate(Exponential decay rate: {agent.epsilon_decay})", fontsize=16, fontweight= 'bold', pad=10)
         ax1[0].set_xlabel("Episode")
         ax1[0].set_ylabel("Rewards")
@@ -770,8 +790,8 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
                 loc="center",
                 cellLoc="center",
                 rowLoc="center")
-        ax2.set_title(f"Q Table ({cur_i+1} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        np.save(results_path / "RL_Qtable.npy", data)
+        ax2.set_title(f"Q Table ({cur_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
+        np.save(results_path / f"RL_Qtable/RL_Qtable_{cur_i}.npy", data)
         plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
         rospy.loginfo(f"[mir100_rl_1] successfully saves Q_table.png to {results_path}!")
