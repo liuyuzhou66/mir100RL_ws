@@ -231,7 +231,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 400         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
+        self.max_time = 380         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -426,9 +426,9 @@ class DynamicObstacleNavigationMir100Sim:
         rospy.loginfo(f"[{self._name}] overall_time taken: {self.overall_time}")
         
 
-    def move_to_wp(self, wp_x, wp_y, wp_ori):
-        pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
-        pub.publish(PoseStamped(header=Header(time=rospy.Time.now(), frame_id='map'), pose=Pose(position=Point(x=wp_x, y=wp_y, z=0), orientation=Quaternion(*wp_ori))))
+    # def move_to_wp(self, wp_x, wp_y, wp_ori):
+    #     pub = rospy.Publisher('move_base_simple/goal', PoseStamped, queue_size=10)
+    #     pub.publish(PoseStamped(header=Header(time=rospy.Time.now(), frame_id='map'), pose=Pose(position=Point(x=wp_x, y=wp_y, z=0), orientation=Quaternion(*wp_ori))))
 
 
     def move_base_thread(self, goal_pose):
@@ -566,7 +566,7 @@ class DynamicObstacleNavigationMir100Sim:
 
 #----------------------------------------------------------------------------------------#
 
-def run_episode(env,agent):
+def run_episode(env,agent,current_episode):
     
     rospy.loginfo("[mir100_rl_1] starts a new episode!")
     
@@ -606,6 +606,7 @@ def run_episode(env,agent):
         
         # If there is a simulation error, restart this episode
         if env.restart_episode:
+            rospy.loginfo(f"[mir100_rl_1] restarts episode <{current_episode}>")
             s = env.reset()
             agent.reset_memory()
             episode_reward = 0
@@ -706,7 +707,7 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
 
         # Run the episode
         rospy.loginfo(f"[mir100_rl_1] episode <{cur_i}>! (total number of episode: {num_episodes})")
-        env,agent,episode_reward = run_episode(env,agent)
+        env,agent,episode_reward = run_episode(env,agent,cur_i)
 
         # Update the "overall_times"
         overall_times.append(env.overall_time)
