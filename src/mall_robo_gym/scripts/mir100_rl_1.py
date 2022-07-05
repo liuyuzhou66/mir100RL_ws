@@ -703,11 +703,13 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     overall_times = []
     rest_num_episode = num_episodes
     
+    create_paths(results_path)
+
     # Store the rewards by empty list of input from externally
     if external_data:
         # Read rewards
         rewards = []
-        create_paths(results_path)
+        
         RL_REWARDS_PATH = results_path / 'RL_rewards'
         with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
             for r in f.readlines():
