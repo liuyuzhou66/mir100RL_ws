@@ -704,36 +704,35 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     rest_num_episode = num_episodes
     
     create_paths(results_path)
+    RL_REWARDS_PATH = results_path / 'RL_rewards'
+    RL_OVERALL_TIMES_PATH = results_path / "RL_overall_times"
+    RL_EXPLO_RATE_PATH = results_path / "RL_exploration_rate"
+    RL_Q_TABLE_PATH = results_path / "RL_Qtable"
 
     # Store the rewards by empty list of input from externally
     if external_data:
         # Read rewards
         rewards = []
         
-        RL_REWARDS_PATH = results_path / 'RL_rewards'
         with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
             for r in f.readlines():
                 rewards.append(float(r))
         
         # Read overall_times
         overall_times = []
-        RL_OVERALL_TIMES_PATH = results_path / "RL_overall_times"
         with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
             for t in f.readlines():
                 overall_times.append(float(t))
 
         # Read exploration rate
         exp_rate = []
-        RL_EXPLO_RATE_PATH = results_path / "RL_exploration_rate"
         with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
             for e in f.readlines():
                 exp_rate.append(float(e))
-
         agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
         agent.exploration_rate = exp_rate
 
         # Read the Q table
-        RL_Q_TABLE_PATH = results_path / "RL_Qtable"
         initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
         agent.Q = initial_q_table
 
@@ -755,17 +754,17 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         # Update the "overall_times"
         overall_times.append(env.overall_time)
         rospy.loginfo(f"[mir100_rl_1] appends oveall_times into list: {overall_times}!")
-        np.savetxt(results_path / f"RL_overall_times/RL_overall_times_{cur_i}.txt", np.array(overall_times), fmt='%f',delimiter=',')
+        np.savetxt(RL_OVERALL_TIMES_PATH / f"RL_overall_times_{cur_i}.txt", np.array(overall_times), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the overall_times to {results_path}!")
         
         # Update the "rewards"
         rewards.append(episode_reward)
         rospy.loginfo(f"[mir100_rl_1] appends episode_reward into list: {rewards}!")
-        np.savetxt(results_path / f"RL_rewards/RL_rewards_{cur_i}.txt", np.array(rewards), fmt='%f',delimiter=',')
+        np.savetxt(RL_REWARDS_PATH / f"RL_rewards_{cur_i}.txt", np.array(rewards), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the rewards to {results_path}!")
 
         # Update the "epsilon"
-        np.savetxt(results_path / f"RL_exploration_rate/RL_exploration_rate_{cur_i}.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
+        np.savetxt(RL_EXPLO_RATE_PATH / f"RL_exploration_rate_{cur_i}.txt", np.array(agent.exploration_rate), fmt='%f',delimiter=',')
         rospy.loginfo(f"[mir100_rl_1] successfully writes the exploration_rate to {results_path}!")
 
         longest_t = max(overall_times)
@@ -814,7 +813,7 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
                 cellLoc="center",
                 rowLoc="center")
         ax2.set_title(f"Q Table ({cur_i} Episodes)", fontsize=16, fontweight= 'bold', pad=10)
-        np.save(results_path / f"RL_Qtable/RL_Qtable_{cur_i}.npy", data)
+        np.save(RL_Q_TABLE_PATH / f"RL_Qtable_{cur_i}.npy", data)
         plt.savefig(results_path / 'RL_Q_table.png', dpi = 200)
         # plt.show()
         rospy.loginfo(f"[mir100_rl_1] successfully saves Q_table.png to {results_path}!")
