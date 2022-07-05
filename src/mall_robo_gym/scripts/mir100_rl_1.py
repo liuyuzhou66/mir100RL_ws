@@ -675,6 +675,22 @@ class DeliveryQAgent(QAgent):
     def reset_memory(self):
         self.wp_memory = []
 
+def create_paths(results_path):
+    RL_REWARDS_PATH = results_path / 'RL_rewards'
+    if not RL_REWARDS_PATH.exists():
+        os.mkdir(RL_REWARDS_PATH)
+
+    RL_OVERALL_TIMES_PATH = results_path / "RL_overall_times"
+    if not RL_OVERALL_TIMES_PATH.exists():
+        os.mkdir(RL_OVERALL_TIMES_PATH)
+
+    RL_EXPLO_RATE_PATH = results_path / "RL_exploration_rate"
+    if not RL_EXPLO_RATE_PATH.exists():
+        os.mkdir(RL_EXPLO_RATE_PATH)
+    
+    RL_Q_TABLE_PATH = results_path / "RL_Qtable"
+    if not RL_Q_TABLE_PATH.exists():
+        os.mkdir(RL_Q_TABLE_PATH)
 
 
 def run_num_episodes(env, agent, num_episodes=100, external_data=False):
@@ -691,19 +707,23 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     if external_data:
         # Read rewards
         rewards = []
-        with open(results_path / "RL_rewards/RL_rewards.txt") as f:
+        create_paths(results_path)
+        RL_REWARDS_PATH = results_path / 'RL_rewards'
+        with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
             for r in f.readlines():
                 rewards.append(float(r))
         
         # Read overall_times
         overall_times = []
-        with open(results_path / "RL_overall_times/RL_overall_times.txt") as f:
+        RL_OVERALL_TIMES_PATH = results_path / "RL_overall_times"
+        with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
             for t in f.readlines():
                 overall_times.append(float(t))
 
         # Read exploration rate
         exp_rate = []
-        with open(results_path / "RL_exploration_rate/RL_exploration_rate.txt") as f:
+        RL_EXPLO_RATE_PATH = results_path / "RL_exploration_rate"
+        with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
             for e in f.readlines():
                 exp_rate.append(float(e))
 
@@ -711,7 +731,8 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         agent.exploration_rate = exp_rate
 
         # Read the Q table
-        initial_q_table = np.load(results_path / "RL_Qtable/RL_Qtable.npy")
+        RL_Q_TABLE_PATH = results_path / "RL_Qtable"
+        initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
         agent.Q = initial_q_table
 
         cur_num_episode = len(rewards)
