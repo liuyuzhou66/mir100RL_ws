@@ -739,13 +739,18 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         cur_num_episode = len(rewards)
         rest_num_episode = num_episodes - cur_num_episode
 
+        rospy.loginfo("[mir100_rl_1] All data has been read!")
+
+        external_data = False
+
+    else:
+        cur_num_episode = 0
+        rest_num_episode = num_episodes - cur_num_episode
+
     
     for i in range(rest_num_episode):
 
-        if external_data:
-            cur_i = i + cur_num_episode + 1
-        else:
-            cur_i = i + 1
+        cur_i = i + cur_num_episode + 1
 
         # Run the episode
         rospy.loginfo(f"[mir100_rl_1] episode <{cur_i}>! (total number of episode: {num_episodes})")
@@ -852,7 +857,7 @@ if __name__ == u'__main__':
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
     num_episodes = 800
-    run_num_episodes(env,agent,num_episodes,external_data=False)
+    run_num_episodes(env,agent,num_episodes,external_data=True)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())
