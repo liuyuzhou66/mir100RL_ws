@@ -280,6 +280,10 @@ class DynamicObstacleNavigationMir100Sim:
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
 
+        # clear move_base cost-map obstacles after teleporting
+        clear_client = rospy.ServiceProxy('/move_base_node/clear_costmaps', Empty)
+        clear_client(EmptyRequest())
+
         # Return the index of the first point robot starts (state)
         return start_point_index
 
@@ -714,34 +718,36 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
         # Read rewards
         rewards = []
         
-        with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
-            for r in f.readlines():
-                rewards.append(float(r))
+        if (RL_REWARDS_PATH / "RL_rewards.txt").exists():
+            with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
+                for r in f.readlines():
+                    rewards.append(float(r))
         
         # Read overall_times
         overall_times = []
-        with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
-            for t in f.readlines():
-                overall_times.append(float(t))
+        if (RL_OVERALL_TIMES_PATH / "RL_overall_times.txt").exists():
+            with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
+                for t in f.readlines():
+                    overall_times.append(float(t))
 
         # Read exploration rate
         exp_rate = []
-        with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
-            for e in f.readlines():
-                exp_rate.append(float(e))
-        agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
-        agent.exploration_rate = exp_rate
+        if (RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt").exists():
+            with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
+                for e in f.readlines():
+                    exp_rate.append(float(e))
+            agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
+            agent.exploration_rate = exp_rate
 
         # Read the Q table
-        initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
-        agent.Q = initial_q_table
+        if (RL_Q_TABLE_PATH / "RL_Qtable.npy").exists():
+            initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
+            agent.Q = initial_q_table
 
         cur_num_episode = len(rewards)
         rest_num_episode = num_episodes - cur_num_episode
 
         rospy.loginfo("[mir100_rl_1] All data has been read!")
-
-        external_data = False
 
     else:
         cur_num_episode = 0
