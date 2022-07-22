@@ -38,17 +38,17 @@ cd ~/mir100RL_ws/src/mir_robot/mir_navigation/config/move_base_common_params.yam
 - Red sphere: the waypoint that the robot is currently heading to
 
 ### Plot the training result
-#### Without obstacles (800 episodes)
+#### Without obstacles (1000 episodes)
 ![RL_Rewards_and_OverallTime](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/RL_Rewards_and_OverallTime.png)
-- The minimum time for the [mir100_rl_1] to complete the task is 194.33 seconds in episode <212> with reward (-173.2)!
-- Overall time of training: 17.65 h = 1059 min
-- Training time per episode: 4.27 min
-#### With obstacles (800 episodes)
+- The minimum time for the [mir100_rl_1] to complete the task is ？ seconds in episode <> with reward ()!
+- Overall time of training: min
+- Training time per episode: min
+#### With obstacles (1000 episodes)
 
 ### Plot the Q table
-#### Without obstacles (800 episodes)
+#### Without obstacles (1000 episodes)
 ![RL_Q_table](https://github.com/liuyuzhou66/mir100RL_ws/blob/master/Results_Plot/RL_Q_table.png)
-#### With obstacles (800 episodes)
+#### With obstacles (1000 episodes)
 
 ### Plot the testing result
 #### Without obstacles (10 episodes)
