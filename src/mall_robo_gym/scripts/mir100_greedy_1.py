@@ -214,6 +214,10 @@ class PathPlanning:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
+        
+        # clear move_base cost-map obstacles after teleporting
+        clear_client = rospy.ServiceProxy('/move_base_node/clear_costmaps', Empty)
+        clear_client(EmptyRequest())
 
 
     def reset_path_dist_list(self):

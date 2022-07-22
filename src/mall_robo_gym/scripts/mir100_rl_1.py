@@ -697,15 +697,11 @@ def create_paths(results_path):
         os.mkdir(RL_Q_TABLE_PATH)
 
 
-def run_num_episodes(env, agent, num_episodes=100, external_data=False):
+def run_num_episodes(env, agent, num_episodes=100):
 
     results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
     if not results_path.exists():
         results_path.mkdir()
-
-    rewards = []
-    overall_times = []
-    rest_num_episode = num_episodes
     
     create_paths(results_path)
     RL_REWARDS_PATH = results_path / 'RL_rewards'
@@ -714,44 +710,39 @@ def run_num_episodes(env, agent, num_episodes=100, external_data=False):
     RL_Q_TABLE_PATH = results_path / "RL_Qtable"
 
     # Store the rewards by empty list of input from externally
-    if external_data:
-        # Read rewards
-        rewards = []
-        
-        if (RL_REWARDS_PATH / "RL_rewards.txt").exists():
-            with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
-                for r in f.readlines():
-                    rewards.append(float(r))
-        
-        # Read overall_times
-        overall_times = []
-        if (RL_OVERALL_TIMES_PATH / "RL_overall_times.txt").exists():
-            with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
-                for t in f.readlines():
-                    overall_times.append(float(t))
+    # Read rewards
+    rewards = []
+    
+    if (RL_REWARDS_PATH / "RL_rewards.txt").exists():
+        with open(RL_REWARDS_PATH / "RL_rewards.txt") as f:
+            for r in f.readlines():
+                rewards.append(float(r))
+    
+    # Read overall_times
+    overall_times = []
+    if (RL_OVERALL_TIMES_PATH / "RL_overall_times.txt").exists():
+        with open(RL_OVERALL_TIMES_PATH / "RL_overall_times.txt") as f:
+            for t in f.readlines():
+                overall_times.append(float(t))
 
-        # Read exploration rate
-        exp_rate = []
-        if (RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt").exists():
-            with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
-                for e in f.readlines():
-                    exp_rate.append(float(e))
-            agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
-            agent.exploration_rate = exp_rate
+    # Read exploration rate
+    exp_rate = []
+    if (RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt").exists():
+        with open(RL_EXPLO_RATE_PATH / "RL_exploration_rate.txt") as f:
+            for e in f.readlines():
+                exp_rate.append(float(e))
+        agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
+        agent.exploration_rate = exp_rate
 
-        # Read the Q table
-        if (RL_Q_TABLE_PATH / "RL_Qtable.npy").exists():
-            initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
-            agent.Q = initial_q_table
+    # Read the Q table
+    if (RL_Q_TABLE_PATH / "RL_Qtable.npy").exists():
+        initial_q_table = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
+        agent.Q = initial_q_table
 
-        cur_num_episode = len(rewards)
-        rest_num_episode = num_episodes - cur_num_episode
+    cur_num_episode = len(rewards)
+    rest_num_episode = num_episodes - cur_num_episode
 
-        rospy.loginfo("[mir100_rl_1] All data has been read!")
-
-    else:
-        cur_num_episode = 0
-        rest_num_episode = num_episodes - cur_num_episode
+    rospy.loginfo("[mir100_rl_1] All data has been read!")
 
     
     for i in range(rest_num_episode):
@@ -863,7 +854,7 @@ if __name__ == u'__main__':
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
     num_episodes = 800
-    run_num_episodes(env,agent,num_episodes,external_data=True)
+    run_num_episodes(env,agent,num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
     pause_physics_client(EmptyRequest())

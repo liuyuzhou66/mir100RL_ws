@@ -201,6 +201,10 @@ class DynamicObstacleNavigationMir100Test:
                 wp_name = f"Waypoint_{j}"
                 sphere = self.waypoint_labels[wp_name]
                 sphere.spawn_blue(self.waypoints[j].position.x, self.waypoints[j].position.y)
+
+        # clear move_base cost-map obstacles after teleporting
+        clear_client = rospy.ServiceProxy('/move_base_node/clear_costmaps', Empty)
+        clear_client(EmptyRequest())
         
         return start_point_index
 
@@ -393,8 +397,11 @@ class QAgent:
         self.reset_memory()
         results_path = BASE_PATH.parent.parent.parent / 'Results_Plot'
 
+        create_paths(results_path)
+        RL_Q_TABLE_PATH = results_path / "RL_Qtable"
+
         # Load Q table
-        self.Q = np.load(results_path / 'RL_Qtable/RL_Qtable.npy')
+        self.Q = np.load(RL_Q_TABLE_PATH / "RL_Qtable.npy")
         rospy.loginfo("----type----")
         rospy.loginfo(type(self.Q))
         rospy.loginfo("----shape----")
@@ -419,6 +426,12 @@ class QAgent:
     
     def reset_memory(self):
         self.wp_memory = []
+
+
+def create_paths(results_path):
+    RL_Q_TABLE_PATH = results_path / "RL_Qtable"
+    if not RL_Q_TABLE_PATH.exists():
+        os.mkdir(RL_Q_TABLE_PATH)
 
 
 def run_num_episode(env, agent, num_episodes = 10):
