@@ -161,23 +161,80 @@ class MoveToWaypoint:
 if __name__ == u'__main__':
     rospy.init_node('move_obstacle', anonymous=True)
 
-    obstacle1 = Obstacle('first_obstacle')
+    obstacle1 = Obstacle('obstacle_1')
     obstacle1.waypoints = [
-        Waypoint(0.0, 0, 0),
-        Waypoint(18.0, 0, 20),
-        Waypoint(0.0, 0, 20),
+        Waypoint(-17.5, -5.0, 0),
+        Waypoint(-17.5, -10.0, 6),
+        Waypoint(-13.35, -10.0, 6),
+        Waypoint(-13.35, -15.0, 6),
+        Waypoint(-17.35, -15.0, 6),
+        Waypoint(-17.5, -10.0, 6),
+        Waypoint(-13.35, -10.0, 6),
+        Waypoint(-13.35, -5.0, 6),
+        Waypoint(-17.5, -5.0, 6)
     ]
-    obstacle1.spawn(6.0, 0)
+    obstacle1.spawn(-17.5, -5.0)
 
-    obstacle2 = Obstacle('second_obstacle')
+    obstacle2 = Obstacle('obstacle_2')
     obstacle2.waypoints = [
-        Waypoint(-1.0, 0, 0),
-        Waypoint(-11.0, 0, 14),
-        Waypoint(-1.0, 0, 14)
+        Waypoint(-10.3, -1.75, 0),
+        Waypoint(-10.3, -13.56, 10),
+        Waypoint(-10.3, -1.75, 10)
     ]
-    obstacle2.spawn(-1.0, 0)
+    obstacle2.spawn(-10.3, -1.75)
+
+    obstacle3 = Obstacle('obstacle_3')
+    obstacle3.waypoints = [
+        Waypoint(-0.55, -7.8, 0),
+        Waypoint(6.0, -7.8, 9),
+        Waypoint(7.5, -15.0, 10),
+        Waypoint(-0.55, -15.0, 10),
+        Waypoint(-0.55, -7.8, 7)
+    ]
+    obstacle3.spawn(-0.55, -7.8)
+
+    obstacle4 = Obstacle('obstacle_4')
+    obstacle4.waypoints = [
+        Waypoint(7.4, -7.88, 0),
+        Waypoint(7.4, 0.0, 10),
+        Waypoint(12.0, 0.0, 4),
+        Waypoint(12.0, -7.88, 10),
+        Waypoint(7.4, -7.88, 5)
+    ]
+    obstacle4.spawn(7.4, -7.88)
+
+    obstacle5 = Obstacle('obstacle_5')
+    obstacle5.waypoints = [
+        Waypoint(12.0, -15.0, 0),
+        Waypoint(12.0, -10.3, 7),
+        Waypoint(14.6, -10.3, 5),
+        Waypoint(14.6, -5.5, 4),
+        Waypoint(17.5, -5.5, 2),
+        Waypoint(17.5, -15.0, 9)
+    ]
+    obstacle5.spawn(12.0, -15.0)
+
+    obstacle6 = Obstacle('obstacle_6')
+    obstacle6.waypoints = [
+        Waypoint(-1.2, 0.0, 0),
+        Waypoint(-10.0, 0.0, 9),
+        Waypoint(-10.0, 4.0, 3),
+        Waypoint(-1.2, 7.0, 10),
+        Waypoint(-1.2, 0.0, 7)
+    ]
+    obstacle6.spawn(-1.2, 0.0)
+
+    obstacle7= Obstacle('obstacle_7')
+    obstacle7.waypoints = [
+        Waypoint(-10.0, 7.8, 0),
+        Waypoint(-10.0, 15.0, 7),
+        Waypoint(-1.2, 15.0, 9),
+        Waypoint(-1.2, 10.8, 3),
+        Waypoint(-10.0, 7.8, 10)
+    ]
+    obstacle7.spawn(-10.0, 7.8)
 
     mtwp = MoveToWaypoint()
-    mtwp.obstacles = [obstacle1, obstacle2]
+    mtwp.obstacles = [obstacle1, obstacle2, obstacle3, obstacle4, obstacle5, obstacle6, obstacle7]
     mtwp.move_obstacles()
 
