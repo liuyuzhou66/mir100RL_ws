@@ -456,8 +456,18 @@ class DynamicObstacleNavigationMir100Sim:
 
 
     def move_base_watcher_thread(self, goal_pose):
+        times = 0
         while True:
+            times += 1
             rospy.sleep(1)
+
+            if times >= 30:
+                # clear move_base cost-map every 30 seconds
+                rospy.loginfo('clear map')
+                clear_client = rospy.ServiceProxy('/move_base_node/clear_costmaps', Empty)
+                clear_client(EmptyRequest())
+                times = 0
+
 
             # Update the oveall time since agent left START_POINT
             time = rospy.get_rostime()

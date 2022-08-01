@@ -3,6 +3,7 @@
 from cmath import sqrt
 from turtle import distance
 import rospy 
+import time
 import math
 from geometry_msgs.msg import Pose, Point
 from gazebo_msgs.msg import ModelState 
@@ -58,6 +59,7 @@ OBS = '''<?xml version='1.0'?>
 
 class Obstacle:
     def __init__(self, model_name):
+        rospy.wait_for_service('/gazebo/set_model_state')
         self.model_name = model_name
         self.pause_start = None
         self.pause_percentage = None
@@ -86,16 +88,34 @@ class Obstacle:
         self.percentage = 0
         self.end = self.next_wp.time
 
-    def move_step(self):
+    def move_step(self, robot_pos):
         path = self.waypoints
         time = rospy.get_rostime()
         now = time.to_sec()
-        if self.stop_case(self.position):
-            if not self.pause_start:
+
+        # check if the robot is just 2 meter away
+        if self.robot_distance(robot_pos) < 2.0:
+            if not self.pause_start:  # start to wait infront of the robot
                 self.pause_percentage = self.percentage
                 self.pause_start = now
+            elif self.pause_start and now - self.pause_start > 30:
+                # we waited for 30 seconds, allow the robot to move, we
+                # teleport 2 waypoints further
+                idx = (self.waypoint_idx + 2) % len(path)
+                self.waypoint_idx = idx
+                self.last_wp = path[self.waypoint_idx]
+                position = Point()
+                position.x = self.last_wp.x
+                position.y = self.last_wp.y
+                self.teleport(position, robot_pos)
+                self.pause_percentage = 0
+                self.pause_start = None
+                self.add_percentage = 0
+                self.percentage = 0
             return
         if self.pause_start:
+            # robot is out of the way but we waited
+            # continue moving from here
             self.start = now
             self.end = now + self.next_wp.time
             self.add_percentage = self.pause_percentage
@@ -125,38 +145,57 @@ class Obstacle:
         distance_y = (self.next_wp.y - self.last_wp.y) * percentage
         self.percentage = percentage
         # set model pose, add distance x and y to last position, copied from https://answers.gazebosim.org/question/22125/how-to-set-a-models-position-using-gazeboset_model_state-service-in-python/
+        position = Point()
+        position.x = self.last_wp.x + distance_x
+        position.y = self.last_wp.y + distance_y
+        self.teleport(position, robot_pos)
+
+    def teleport(self, position, robot_pos):
+        # make sure we do not teleport into the robot
+        if self.robot_distance(robot_pos) < 0.9:
+            return
+        
+        # all okay, generate state-message
         state_msg = ModelState()
         state_msg.model_name = self.model_name
-        self.position.x = self.last_wp.x + distance_x
-        self.position.y = self.last_wp.y + distance_y
-        self.position.z = 0.9
+        self.position.x = position.x
+        self.position.y = position.y
+        self.position.z = 0.9        
         state_msg.pose.position = self.position
-        rospy.wait_for_service('/gazebo/set_model_state')
         set_state = rospy.ServiceProxy(
             '/gazebo/set_model_state', SetModelState)
-        resp = set_state(state_msg )
-
-    def stop_case(self, position):
-        state_msg = "mir"
-        rospy.wait_for_service('/gazebo/get_model_state')
-        get_state = rospy.ServiceProxy(
-            '/gazebo/get_model_state', GetModelState)
-        resp = get_state(model_name = "mir")
-        dist_pos = math.sqrt((position.x - resp.pose.position.x)**2 + (position.y - resp.pose.position.y)**2)
-        # rospy.loginfo(dist_pos)
-        return dist_pos < 2.0
-
+        resp = set_state(state_msg)
+        if not resp.success:
+            rospy.loginfo(f'Error sending robot state {state_msg}')
+        
+    def robot_distance(self, robot_pos):
+        # calculatae distance from obstacle to robot
+        return math.sqrt(
+            (self.position.x - robot_pos.x)**2 + 
+            (self.position.y - robot_pos.y)**2)
 
 
 class MoveToWaypoint:
+    def __init__(self):
+        rospy.wait_for_service('/gazebo/get_model_state')
+
     def move_obstacles(self):
+        FPS = 30
+        sleep_time = 1.0/(FPS*len(self.obstacles))
         for ob in self.obstacles:
             ob.move_init()
+
         while not rospy.is_shutdown():
+            robot_pos = self.get_robot_position()
             for ob in self.obstacles:
-                ob.move_step()
+                ob.move_step(robot_pos)
+                # rospy.sleep(sleep_time)
 
-
+    def get_robot_position(self):
+        get_state = rospy.ServiceProxy(
+            '/gazebo/get_model_state', GetModelState)
+        resp = get_state(model_name = "mir")
+        return resp.pose.position
 
 if __name__ == u'__main__':
     rospy.init_node('move_obstacle', anonymous=True)
@@ -177,9 +216,11 @@ if __name__ == u'__main__':
 
     obstacle2 = Obstacle('obstacle_2')
     obstacle2.waypoints = [
-        Waypoint(-10.3, -1.75, 0),
-        Waypoint(-10.3, -13.56, 10),
-        Waypoint(-10.3, -1.75, 10)
+        Waypoint(-10.3, -7.5, 0),
+        Waypoint(-10.3, -15.0, 7),
+        Waypoint(-7.4, -15.0, 3),
+        Waypoint(-7.4, -7.5, 7),
+        Waypoint(-10.3, -7.5, 3)
     ]
     obstacle2.spawn(-10.3, -1.75)
 
