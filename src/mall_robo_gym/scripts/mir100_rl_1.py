@@ -231,7 +231,7 @@ class DynamicObstacleNavigationMir100Sim:
         self.at_startpoint = None   # Check whether robot is at the starting point (0: not at; 1: at)
         """
         self.overall_time = None    # Time since episode starts
-        self.max_time = 1800         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
+        self.max_time = 800         # Maximum time for each episode: 0.5 h = 30 min = 1800 s
         self.initialize_Q_table_by_time = False
 
         # The Multiplier value for additional reward. This needs to be adjusted!
@@ -624,18 +624,20 @@ def run_episode(env,agent,current_episode,results_path):
             rospy.loginfo(f"[mir100_rl_1] reset episode_reward = 0, done!")
 
             # Read the previous Q table
-            initial_q_table = np.load(results_path / f"RL_Qtable/RL_Qtable_{current_episode - 1}.npy")
-            agent.Q = initial_q_table
-            rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s Q_table, done!")
+            if (results_path / f"RL_Qtable/RL_Qtable_{current_episode - 1}.npy").exists():
+                initial_q_table = np.load(results_path / f"RL_Qtable/RL_Qtable_{current_episode - 1}.npy")
+                agent.Q = initial_q_table
+                rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s Q_table, done!")
 
             # Read the previous episode's exploration rate
             exp_rate = []
-            with open(results_path / f"RL_exploration_rate/RL_exploration_rate_{current_episode - 1}.txt") as f:
-                for e in f.readlines():
-                    exp_rate.append(float(e))
-            agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
-            agent.exploration_rate = exp_rate
-            rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s exploration_rate, done!")
+            if (results_path / f"RL_exploration_rate/RL_exploration_rate_{current_episode - 1}.txt").exists():
+                with open(results_path / f"RL_exploration_rate/RL_exploration_rate_{current_episode - 1}.txt") as f:
+                    for e in f.readlines():
+                        exp_rate.append(float(e))
+                agent.epsilon = exp_rate[-1]    # Use the last element of exploration_rate list as the initial epsilon value
+                agent.exploration_rate = exp_rate
+                rospy.loginfo(f"[mir100_rl_1] read previous episode <{current_episode - 1}>'s exploration_rate, done!")
 
             i = 0
 
@@ -863,7 +865,7 @@ if __name__ == u'__main__':
     """
     agent = DeliveryQAgent(env.state_space,env.action_space,epsilon = 1.0,epsilon_min = 0.01,epsilon_decay = 0.999,gamma = 0.95,lr = 0.8)
 
-    num_episodes = 800
+    num_episodes = 1000
     run_num_episodes(env,agent,num_episodes)
 
     pause_physics_client = rospy.ServiceProxy('/gazebo/pause_physics', Empty)
